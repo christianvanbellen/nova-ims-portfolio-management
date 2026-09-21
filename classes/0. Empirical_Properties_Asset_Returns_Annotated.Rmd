@@ -1,0 +1,808 @@
+---
+title: "Empirical Properties of Asset Returns"
+author: "Jorge Miguel Bravo | NOVA IMS, Universidade Nova de Lisboa | Universit\u00e9 Paris-Dauphine PSL"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: show
+    theme: cosmo
+    self_contained: true
+  html_notebook:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: show
+    theme: cosmo
+    self_contained: true
+  pdf_document:
+    toc: true
+params:
+  end_date: !r Sys.Date()
+  lookback_years: 5
+  interpolate_missing: false
+  portfolio_value: 100000
+editor_options:
+  markdown:
+    wrap: 82
+---
+
+# Purpose and analytical framework
+
+This notebook illustrates the analysis of the empirical behaviour of daily asset returns through prices, performance measures, distributional diagnostics and dependence statistics. The objective is to establish what the observations support before choosing a probability model. It is an exploratory analysis of the selected assets and sample period, rather than a forecasting exercise or a test of a trading strategy.
+
+## Learning objectives and notation
+
+After running the notebook, the reader should be able to distinguish simple from log returns, interpret distributional and dependence plots, calculate historical risk measures, and explain the assumptions required to annualise daily estimates.
+
+| Symbol | Meaning | Corresponding object |
+|:---|:---|:---|
+| $P_{i,t}$ | Adjusted price of asset $i$ at observation $t$ | `prices` |
+| $R_{i,t}$ | One-period arithmetic (simple) return | `X_lin` |
+| $r_{i,t}$ | One-period continuously compounded (log) return | `X_log` |
+| $T$; $N$ | Number of retained return observations; number of assets | `nrow(X_log)`; `ncol(X_log)` |
+| $\bar r_i$; $s_i$ | Sample mean and sample standard deviation of log returns | `mu_log`; `sd_log` |
+| $\widehat\Sigma$ | Sample covariance matrix of daily log returns | `Sigma_log` |
+| $m$ | Trading periods per year, here 252 | `annual_scale` |
+| $W$; $\alpha$ | Position value; lower-tail return probability | `W`; `alpha` |
+
+All returns are decimals: a simple return of $0.01$ is 1%. Dates refer to trading observations, not an uninterrupted sequence of calendar days. A Friday-to-Monday return is one close-to-close observation.
+
+## Interpretation before estimation
+
+A descriptive statistic always summarises the retained sample. Interpreting it as an estimate of a stable population characteristic requires additional assumptions. A useful working framework is a stationary, ergodic return process with finite moments:
+
+$$\operatorname{E}(r_{i,t})=\mu_i,\qquad
+\operatorname{Var}(r_{i,t})=\sigma_i^2,\qquad
+\operatorname{Cov}(r_{i,t},r_{i,t-k})=\gamma_i(k).$$
+
+Covariance stationarity concerns time-invariant first and second unconditional moments; it does not, by itself, establish a time-invariant full distribution or finite fourth moments. Ergodicity supports learning population quantities from a single sufficiently long time series. Structural changes can weaken these interpretations even when a software routine returns a numerical estimate.
+
+## Run and export
+
+Open `0. Empirical_Properties_Asset_Returns_Annotated.Rmd` in RStudio. Install the packages once if necessary, then use **Run All**. Select **Knit to HTML** for a fully executed report or **Preview Notebook** to view available notebook output. The following commands are instructions for the R console, not an evaluated chunk.
+
+```{r export-instructions, eval=FALSE}
+install.packages(c("rmarkdown", "knitr", "xts", "zoo", "quantmod",
+                   "PerformanceAnalytics", "corrplot", "car"))
+rmarkdown::render("Empirical_Properties_Asset_Returns_Annotated.Rmd",
+                  output_format = "html_document")
+```
+
+RStudio supplies Pandoc for rendering. Internet access is required for package installation and the Yahoo Finance download. The default window changes with the execution date. For a fixed endpoint, change the YAML parameter to, for example, `end_date: !r as.Date("2026-09-10")`.
+
+# Setup
+
+The setup chunk checks dependencies, controls figure dimensions and sets a random seed for the Gaussian comparison.
+
+```{r setup, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = FALSE,
+                      fig.width = 9, fig.height = 5.5,
+                      fig.retina = 2, dpi = 120, error = FALSE)
+
+required <- c("xts", "zoo", "quantmod", "PerformanceAnalytics", "corrplot", "car")
+missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing)) {
+  stop("Install missing packages first: ", paste(missing, collapse = ", "))
+}
+library(xts)
+library(quantmod)
+library(PerformanceAnalytics)
+set.seed(123)
+options(digits = 5)
+```
+
+# Load and inspect stock prices
+
+The main sample comprises McDonald's, GE, Amazon, JPMorgan, Microsoft and the S&P 500. Amazon, Tesla and the index also form the introductory download example.
+
+For an unadjusted equity price $S_t$ and a cash dividend $D_t$, a one-period total return, abstracting from other corporate actions, is
+
+$$R_t=\frac{S_t-S_{t-1}+D_t}{S_{t-1}}.$$
+
+The code instead uses the provider's adjusted-price series. Its adjustments should be checked around splits, distributions and reorganisations before unusually large returns are interpreted economically. In particular, historical corporate changes can complicate interpretation of a long price series under one ticker.
+
+**Data Remarks.** `^GSPC` represents a price index; do not describe its returns as dividend-inclusive total returns. The adjusted equity series and index are therefore not perfectly comparable reinvestment benchmarks. Currency is also held fixed: no exchange-rate conversion is performed.
+
+The window uses five times 365 calendar days as an approximation to five years. The actual number of prices depends on trading days, data availability and the provider's handling of the endpoint. Use the printed sample dates when reporting results, rather than assuming the requested endpoints are observations.
+
+```{r download-data}
+from <- as.Date(params$end_date) - params$lookback_years * 365
+to <- as.Date(params$end_date)
+freq <- "daily"
+annual_scale <- 252
+Tickers <- c("MCD", "GE", "AMZN", "JPM", "MSFT", "^GSPC")
+symbols <- unique(c("AMZN", "TSLA", "^GSPC", Tickers))
+download_one <- function(symbol) {
+  tryCatch(
+    getSymbols(symbol, src = "yahoo", from = from, to = to,
+               periodicity = freq, auto.assign = FALSE),
+    error = function(e) stop("Download failed for ", symbol, ": ",
+                             conditionMessage(e), call. = FALSE)
+  )
+}
+ohlcv <- setNames(lapply(symbols, download_one), symbols)
+AMZN <- ohlcv[["AMZN"]]
+head(AMZN, 3)
+```
+
+## Alignment, missing observations and data quality
+
+Prices are merged by date. By default, missing values are **not** interpolated. Linear interpolation manufactures intermediate prices and can reduce apparent volatility, alter tail quantiles and introduce serial patterns. It remains available through `interpolate_missing` to reproduce the original approach, but any use should be stated in an empirical report.
+
+Returns are calculated before incomplete rows are removed. This prevents an isolated missing price from being silently bridged into a return spanning several observed price intervals. A common complete sample makes covariance and correlation estimates comparable across assets; it can also discard valid observations from other assets.
+
+The missing-price counts below refer to the merged calendar. Holidays shared by all series will generally not appear as missing rows. Review the counts, sample endpoints and unusually large changes before interpreting any statistic. The selected stocks are an illustrative sample, not a representative or survivorship-free equity universe.
+
+```{r assemble-prices}
+price_list <- lapply(Tickers, function(s) {
+  tmp <- Ad(ohlcv[[s]])
+  if (isTRUE(params$interpolate_missing)) {
+    tmp <- zoo::na.approx(tmp, na.rm = FALSE)
+  }
+  colnames(tmp) <- s
+  tmp
+})
+prices <- Reduce(function(x, y) merge(x, y, all = TRUE), price_list)
+xts::tclass(prices) <- "Date"
+if (any(!is.finite(coredata(prices)) & !is.na(coredata(prices)))) {
+  stop("Non-finite prices found.")
+}
+if (any(prices <= 0, na.rm = TRUE)) stop("Prices must be strictly positive.")
+knitr::kable(data.frame(Ticker = Tickers,
+                        Missing_prices = colSums(is.na(prices))),
+             caption = "Missing adjusted prices before return calculation")
+dir.create("data", showWarnings = FALSE)
+saveRDS(list(from = from, to = to, downloaded_at = Sys.time(),
+             interpolate_missing = params$interpolate_missing,
+             ohlcv = ohlcv, prices = prices),
+        file.path("data", paste0("asset_prices_", to, ".rds")))
+str(prices)
+head(prices, 3)
+tail(prices, 3)
+```
+
+Use `Op()`, `Hi()`, `Lo()`, `Cl()`, `Vo()` and `Ad()` to extract open, high, low, close, volume and adjusted close, respectively.
+
+## Technical indicators: smoothing the price path
+
+The $k$-observation simple moving average of closing prices is
+
+$$\operatorname{SMA}_{k,t}=\frac{1}{k}\sum_{j=0}^{k-1}S_{t-j}.$$
+
+The 30- and 200-observation averages summarise shorter- and longer-run price movements. A longer window smooths more strongly and reacts more slowly. The first $k-1$ observations cannot have a full-window average. These are trading-observation windows, not 30 and 200 calendar days.
+
+The chart uses closing prices, whereas the subsequent return calculations use adjusted prices. Crossovers are visual descriptions only: no profitability claim follows without a specified rule, transaction costs and out-of-sample evaluation.
+
+```{r technical-indicators, fig.height=7}
+chartSeries(AMZN, type = "auto", theme = chartTheme("white"),
+            TA = "addSMA(n=30, on=1, col='blue');addSMA(n=200, on=1, col='red')")
+```
+
+# Calculate and compare linear and log-returns
+
+For strictly positive adjusted prices,
+
+$$R_{i,t}=\frac{P_{i,t}}{P_{i,t-1}}-1,\qquad
+r_{i,t}=\log P_{i,t}-\log P_{i,t-1}
+       =\log(1+R_{i,t}),\qquad
+R_{i,t}=\exp(r_{i,t})-1.$$
+
+For small returns the measures are close, since
+
+$$\log(1+R)=R-\frac{R^2}{2}+O(R^3).$$
+
+The difference matters most on extreme days. Simple returns cannot fall below $-1$ for a non-negative-priced unlevered asset, whereas log returns have no finite lower bound. Log returns add over time:
+
+$$r_{i,t}^{(h)}=\sum_{j=0}^{h-1}r_{i,t-j},\qquad
+R_{i,t}^{(h)}=\prod_{j=0}^{h-1}(1+R_{i,t-j})-1
+            =\exp\!\left(r_{i,t}^{(h)}\right)-1.$$
+
+Across assets, portfolio **simple** returns satisfy $R_{p,t}=\sum_i w_{i,t-1}R_{i,t}$, with beginning-of-period weights and no external cash flows. Portfolio log returns generally do not equal the weighted average of constituent log returns because of the `Jensen's Inequality`. Additivity across time and across assets must not be confused.
+
+The code checks the exact log-to-simple relationship on retained observations. The initial undefined return and any other incomplete return rows are excluded. The S&P 500 name correction and position-based plotting loops preserve compatibility with both `^GSPC` and `X.GSPC`.
+
+**Read the time plot:** identify large positive and negative movements, changes in typical amplitude and clusters of turbulent days. A mean visually close to zero does not establish a zero expected return, nor does an erratic path establish independence.
+
+```{r returns}
+X_log_raw <- diff(log(prices))
+X_lin_raw <- prices / lag(prices, k = 1) - 1
+keep <- complete.cases(X_log_raw) & complete.cases(X_lin_raw)
+X_log <- X_log_raw[keep, ]
+X_lin <- X_lin_raw[keep, ]
+colnames(X_log)[colnames(X_log) == "X.GSPC"] <- "^GSPC"
+colnames(X_lin)[colnames(X_lin) == "X.GSPC"] <- "^GSPC"
+if (nrow(X_log) < 30L) stop("Insufficient complete observations.")
+stopifnot(isTRUE(all.equal(coredata(X_lin), expm1(coredata(X_log)),
+                           tolerance = 1e-10)))
+cat("Complete return observations:", nrow(X_log), "\n")
+cat("Return sample:", as.character(start(X_log)), "to",
+    as.character(end(X_log)), "\n")
+head(X_log)
+plot(X_log[, "AMZN"], col = "red", main = "Daily Amazon log returns")
+```
+
+The following unevaluated alternatives illustrate `PerformanceAnalytics` return calculation. The main analysis uses the objects created above, including their name corrections and common-sample checks.
+
+```{r alternative-return-formulas, eval=FALSE}
+X_log <- na.omit(Return.calculate(prices, method = "log"))
+X_lin <- na.omit(Return.calculate(prices, method = "discrete"))
+```
+
+## Normalised prices
+
+Rebasing at the first complete price date $t_0$ gives
+
+$$I_{i,t}=\frac{P_{i,t}}{P_{i,t_0}},\qquad I_{i,t_0}=1.$$
+
+A value of 1.40 indicates a 40% increase relative to that base. The chart makes relative growth comparable without allowing high nominal share prices to dominate. Its interpretation inherits each series' adjustment convention; the index remains a price-return benchmark.
+
+```{r normalised-prices}
+prices_complete <- prices[complete.cases(prices), ]
+normalised_prices <- xts(
+  sweep(coredata(prices_complete), 2, as.numeric(prices_complete[1, ]), "/"),
+  order.by = index(prices_complete))
+colnames(normalised_prices) <- Tickers
+plot(normalised_prices, col = grDevices::hcl.colors(length(Tickers), "Dark 3"),
+     legend.loc = "topleft", main = "Normalised adjusted prices (initial value = 1)")
+```
+
+## Annualised realised performance
+
+Let $m=252$ and let $T$ be the retained number of daily returns. The annualised geometric growth estimate is
+
+$$\widehat g_i=
+\left[\prod_{t=1}^{T}(1+R_{i,t})\right]^{m/T}-1
+=\exp(m\bar r_i)-1.$$
+
+This is a compounded historical growth rate, not an estimate obtained by simply multiplying the arithmetic mean by 252. With gaps in the retained return sample, `its interpretation is growth per 252 retained daily intervals`, rather than necessarily the exact calendar-period CAGR implied by the price endpoints.
+
+Annualised volatility in this table is computed from **simple** returns as $\widehat\sigma_{R,i,\mathrm{ann}}=\sqrt m\,s_{R,i}$. With the risk-free return set to zero, the displayed geometric annualised Sharpe ratio is the geometric annual return divided by this annualised standard deviation. It differs from the common arithmetic convention $\sqrt m\,\bar R_i/s_{R,i}$.A zero risk-free rate is a simplifying assumption, not a historical interest-rate series.
+
+```{r annualised-performance}
+knitr::kable(t(table.AnnualizedReturns(X_lin, scale = annual_scale,
+                                       Rf = 0, geometric = TRUE)), digits = 4,
+             caption = "Annualised performance from simple returns; zero risk-free rate")
+```
+
+## Cross-sectional dependence
+
+Each point in a pairwise scatterplot represents two assets' returns on the **same** date. An upward-oriented cloud indicates positive contemporaneous linear association; a diffuse cloud indicates weaker linear association. Inspect curvature, isolated extreme pairs and the density of observations as well as the general direction.
+
+The displayed linear association (covariance) is summarised by
+
+$$\widehat\sigma_{ij}=\frac{1}{T-1}\sum_{t=1}^{T}
+(r_{i,t}-\bar r_i)(r_{j,t}-\bar r_j),\qquad
+\widehat\rho_{ij}=\frac{\widehat\sigma_{ij}}{s_i s_j}.$$
+
+Correlation is unit-free and lies between $-1$ and $1$. Covariance retains the scale of the data. The denominator is the product of **both** standard deviations.
+
+```{r scatterplots, fig.height=9}
+pairs(coredata(X_log), col = grDevices::adjustcolor("coral", alpha.f = 0.4),
+      pch = 16, cex = 0.5)
+```
+
+The matrix plot summarises all pairwise correlations using the common complete sample. It measures neither causation nor a leadâlag relationship. Low Pearson correlation also does not rule out nonlinear dependence or joint extreme losses.
+
+For a portfolio with fixed beginning-of-period weights $\mathbf w$, the one-period simple-return variance is $\mathbf w'\Sigma_R\mathbf w$. This explains why cross-asset dependence matters for diversification. Diversification reduces some risks without eliminating common market exposure.
+
+```{r correlations, fig.height=7}
+cor.mat <- cor(coredata(X_lin))
+corrplot::corrplot.mixed(cor.mat, lower = "number", upper = "circle", diag = "n")
+```
+
+# Distribution of daily returns
+
+## Histograms and fitted normal densities
+
+A density histogram divides the return range into bins. For bin $B_j$ with width $\Delta_j$ and $n_j$ observations, its height is
+
+$$\widehat f_j=\frac{n_j}{T\Delta_j},\qquad
+\sum_j\widehat f_j\Delta_j=1.$$
+
+Thus bar **area**, rather than height alone, corresponds to relative frequency. The normal overlay uses location and scale estimated from the observations. Compare its fit at the centre with its fit in the tails: a roughly bell-shaped histogram can still conceal important extreme-return discrepancies.
+
+The choice of bins affects appearance. `breaks = 50` requests a bin resolution; it does not ensure identical boundaries across assets. These first panels are most useful for within-asset comparisons with the fitted normal curve. The GEâGaussian comparison later uses explicit common bins and axis ranges.
+
+```{r histograms, fig.height=7}
+local({
+  old <- par(mfrow = c(2, 2)); on.exit(par(old))
+  for (s in c("GE", "MCD", "AMZN", "MSFT")) {
+    chart.Histogram(X_log[, s], main = s, colorset = "cornflowerblue",
+                    breaks = 50, methods = "add.normal")
+  }
+})
+```
+
+## Actual returns versus an independent Gaussian benchmark
+
+The simulation draws (using GE data)
+
+$$g_t=\bar r_{\mathrm{GE}}+s_{\mathrm{GE}}\varepsilon_t,
+\qquad \varepsilon_t\overset{\mathrm{iid}}{\sim}N(0,1).$$
+
+The generating distribution is calibrated to GE's sample mean and standard deviation; the realised simulated sample will not have exactly those moments. Fixing the seed makes the illustration repeatable for a given setup.
+
+This comparison asks two different questions: does a Gaussian distribution describe the **marginal shape**, and does independent sampling describe the **time ordering**? The histogram addresses the first; the time plot helps assess the second. Sorting or randomly permuting the observations would leave their histogram unchanged while altering their serial dependence.
+
+Use the matched scales to compare extreme amplitudes and runs of large movements. One simulated path is an illustration, not a formal normality or independence test.
+
+```{r gaussian-comparison, fig.height=8}
+ge <- as.numeric(X_log[, "GE"])
+set.seed(123)
+gwnDaily <- xts(rnorm(length(ge), mean = mean(ge), sd = sd(ge)),
+                order.by = index(X_log))
+local({
+  old <- par(mfrow = c(2, 2)); on.exit(par(old))
+  lim <- range(ge, as.numeric(gwnDaily))
+  plot(index(X_log), ge, type = "l", col = "blue", ylim = lim,
+       main = "Daily GE log returns", xlab = "Date", ylab = "Return")
+  abline(h = 0, col = "grey50")
+  plot(index(gwnDaily), as.numeric(gwnDaily), type = "l", col = "brown1",
+       ylim = lim, main = "Simulated normal returns", xlab = "Date", ylab = "Return")
+  abline(h = 0, col = "grey50")
+  bins <- seq(lim[1], lim[2], length.out = 51)
+  h1 <- hist(ge, breaks = bins, plot = FALSE)
+  h2 <- hist(as.numeric(gwnDaily), breaks = bins, plot = FALSE)
+  ymax <- max(h1$density, h2$density)
+  plot(h1, freq = FALSE, col = "cornflowerblue", ylim = c(0, ymax),
+       main = "GE", xlab = "Return")
+  plot(h2, freq = FALSE, col = "brown1", ylim = c(0, ymax),
+       main = "Gaussian white noise", xlab = "Return")
+})
+```
+
+## Fitted normal density on the actual histogram
+
+For the fitted normal reference,
+
+$$f_N(x)=\frac{1}{s_{\mathrm{GE}}\sqrt{2\pi}}
+\exp\!\left[-\frac{(x-\bar r_{\mathrm{GE}})^2}{2s_{\mathrm{GE}}^2}\right].$$
+
+The red curve is a parametric normal density, not a nonparametric kernel estimate. The overlay is fitted to the same observations being assessed. A centre that fits well does not imply accurate 1% tail probabilities; the subsequent quantiles and QQ plots investigate that issue more directly.
+
+```{r normal-overlay}
+hist(ge, probability = TRUE, breaks = 50, col = "cornflowerblue",
+     main = "GE returns with fitted normal density", xlab = "Log return")
+curve(dnorm(x, mean = mean(ge), sd = sd(ge)), add = TRUE, col = "red", lwd = 2)
+```
+
+## Empirical cumulative distribution function
+
+The empirical distribution function is
+
+$$\widehat F_i(x)=\frac{1}{T}\sum_{t=1}^{T}\mathbf 1\{r_{i,t}\leq x\}.$$
+
+Unlike the histogram, it does not require bins. It gives the observed proportion at or below a threshold, with jumps at observed values. The normal comparison is $\Phi((x-\bar r_i)/s_i)$, where $\Phi$ is the standard normal CDF.
+
+For simple losses of at least 5%, use `log(0.95)` as the log-return threshold. If you use $x=0.05$ as a **5% log-return threshold**, its equivalent simple return is $e^{0.05}-1\approx5.127\%$. To estimate the frequency of non-positive returns, use zero. A historical frequency is not automatically a calibrated probability for tomorrow if the distribution changes over time.
+
+```{r empirical-cdf}
+threshold <- log(0.95)
+Fhat <- mean(ge <= threshold)
+knitr::kable(data.frame(Threshold = threshold, Empirical_probability = Fhat))
+plot(ecdf(ge), col = "cyan3", lwd = 2, xlab = "Log return", ylab = "Probability",
+     main = "Empirical and fitted normal CDFs: GE")
+grid()
+curve(pnorm(x, mean = mean(ge), sd = sd(ge)), add = TRUE, col = "red", lwd = 2)
+legend("topleft", c("Empirical CDF", "Fitted normal CDF"),
+       col = c("cyan3", "red"), lty = 1, bty = "n", lwd = 2)
+```
+
+## Empirical quantiles and percentiles
+
+For a CDF $F$, define $q_p=\inf\{x:F(x)\geq p\}$. A low quantile describes the left tail, the median describes the centre, and $\operatorname{IQR}=q_{0.75}-q_{0.25}$ describes central dispersion.
+
+Interpret a negative 1% log-return quantile through `expm1()` when discussing a percentage wealth loss. Tail estimates use relatively little information: with roughly 1,250 observations, the 1% tail involves only about a dozen observations. That is an illustrative sample size, not a claim about the downloaded data.
+
+```{r quantiles}
+probs <- c(0.01, 0.025, 0.05, 0.25, 0.5, 0.75, 0.95, 0.975, 0.99)
+ret_quant <- apply(coredata(X_log), 2, quantile, probs = probs, type = 7)
+knitr::kable(ret_quant, digits = 5, caption = "Daily log-return quantiles")
+summary(X_log)
+```
+
+# Historical Value-at-Risk
+
+The concept of Value at Risk (VaR) refers to a statistical financial metric used to quantify the loss threshold (`not necessarily the maximum potential loss`) an investment portfolio or company could face over a specific time horizon, given a certain level of confidence For an unlevered long position worth $W>0$, let $L=-WR$ be its one-day monetary loss. We label VaR by confidence level $c=1-\alpha$:
+
+$$\operatorname{VaR}_{c}(L)=\inf\{\ell:F_L(\ell)\geq c\}.$$
+
+For continuous return distributions, the corresponding quantile identities are
+
+$$\operatorname{VaR}_{1-\alpha}=-Wq_\alpha^R
+=-W\left[\exp(q_\alpha^r)-1\right].$$
+
+This notebook labels its tables by confidence $1-\alpha$. Thus a 1% return quantile corresponds to 99% confidence.
+
+For illustration only, if $W=100{,}000$ and $q_{0.01}^r=-0.04$, then $\operatorname{VaR}_{0.99}=100{,}000(1-e^{-0.04})\approx3{,}921.06$. It is a loss threshold, not a maximum loss or the expected loss on bad days. For a continuous loss distribution, expected shortfall instead averages the tail:
+
+$$\operatorname{ES}_{c}=\frac{1}{1-c}\int_c^1\operatorname{VaR}_{u}\,du.$$
+
+Expected shortfall is defined here for interpretation but is not estimated by this chunk. VaR is not forcibly truncated at zero; a positive lower return quantile can produce a negative VaR, signalling a gain threshold under that convention.
+
+Each column assumes a **separate** investment of $W$ in the relevant asset. These are not the component risks of a specified diversified portfolio. The index position is hypothetical. Monetary amounts are in the units of $W$ (USD in this illustration).
+
+The first table transforms interpolated log quantiles; the second computes simple return quantiles directly. Type-7 interpolation and exponentiation do not commute, so a small difference is expected. The direct calculation is the natural historical simple-loss estimate. Neither approach estimates a time-varying conditional VaR, accounts for trading costs, or validates forecasts through backtesting.
+
+```{r historical-var}
+W <- params$portfolio_value
+alpha <- c(0.01, 0.025, 0.05)
+VaR <- -W * expm1(ret_quant[1:3, , drop = FALSE])
+rownames(VaR) <- paste0(100 * (1 - alpha), "% confidence")
+VaR_direct <- -W * apply(coredata(X_lin), 2, quantile, probs = alpha, type = 7)
+rownames(VaR_direct) <- rownames(VaR)
+knitr::kable(VaR, digits = 2, caption = "One-day VaR: transformed log quantiles")
+knitr::kable(VaR_direct, digits = 2, caption = "One-day VaR: direct simple-return quantiles")
+```
+
+# Quantile-quantile plots
+
+A QQ plot pairs ordered observations with theoretical quantiles at corresponding plotting probabilities. For a normal reference the horizontal coordinates are $z_j=\Phi^{-1}(p_j)$; under a normal location-scale model, the vertical coordinates should approximately follow
+
+$$r_{(j)}\approx\mu+\sigma z_j.$$
+
+With `line = "quartiles"`, the reference line is anchored by quartiles rather than by every observation. Its slope and intercept can be written
+
+$$b=\frac{\widehat q_{0.75}-\widehat q_{0.25}}
+        {\Phi^{-1}(0.75)-\Phi^{-1}(0.25)},\qquad
+ a=\widehat q_{0.25}-b\Phi^{-1}(0.25).$$
+
+| Pattern relative to the line | Interpretation to investigate |
+|:---|:---|
+| Lower tail below; upper tail above | More extreme observations in both tails than the normal reference |
+| Pronounced lower-tail departure | Left-tail asymmetry or unusually severe negative observations |
+| Pronounced upper-tail departure | Right-tail asymmetry or unusually large positive observations |
+| Approximately linear throughout | Compatibility of marginal shape with the reference, not proof of normality |
+
+A few extreme points warrant checking the underlying dates and corporate actions. The 95% envelopes are approximate pointwise reference bands, not simultaneous confidence statements about the whole curve. Dependence and changing volatility also affect their inferential interpretation.
+
+```{r qq-normal, fig.height=8}
+local({
+  old <- par(mfrow = c(2, 3), mar = c(4, 4, 3, 1))
+  on.exit(par(old))
+
+  for (j in seq_len(ncol(X_log))) {
+    label <- colnames(X_log)[j]
+    if (label %in% c("X.GSPC", "^GSPC")) label <- "S&P 500"
+
+    chart.QQPlot(
+      as.numeric(X_log[, j]),
+      main = label,
+      line = "quartiles",
+      distribution = "norm",
+      envelope = 0.95
+    )
+  }
+})
+```
+
+## Standardisation separates location and scale from shape
+
+For each asset,
+
+$$z_{i,t}=\frac{r_{i,t}-\bar r_i}{s_i}.$$
+
+The resulting column has sample mean zero and sample standard deviation one, up to rounding. Standardisation does **not** make the distribution normal or remove volatility clustering. Skewness and kurtosis based on central-moment ratios are unchanged by this positive affine transformation.
+
+These plots support comparisons of distributional shape across assets with different volatilities. They repeat the normal-reference diagnostic on a common scale; they are not an independent second test of normality. `scale(coredata(X_log))` returns a matrix, so the loop uses numeric column positions.
+
+```{r standardised-qq, fig.height=8}
+X_cen <- scale(coredata(X_log), center
+               = TRUE, scale = TRUE)
+
+local({
+  old <- par(mfrow = c(2, 3), mar = c(4, 4, 3, 1))
+  on.exit(par(old))
+
+  for (j in seq_len(ncol(X_cen))) {
+    label <- colnames(X_cen)[j]
+    if (label %in% c("X.GSPC", "^GSPC")) label <- "S&P 500"
+
+    chart.QQPlot(
+      X_cen[, j],
+      main = paste(label, "standardised"),
+      line = "quartiles",
+      distribution = "norm",
+      envelope = 0.95
+    )
+  }
+})
+```
+
+## Student-t reference: an alternative tail shape
+
+A Student-t variable $U\sim t_\nu$ has mean zero for $\nu>1$, variance $\nu/(\nu-2)$ for $\nu>2$, and excess kurtosis $6/(\nu-4)$ for $\nu>4$. For the illustrative choice $\nu=5$,
+
+$$\operatorname{Var}(U)=\frac53,\qquad
+\operatorname{ExKurt}(U)=6,\qquad
+Z=\sqrt{\frac35}\,U\quad\Longrightarrow\quad\operatorname{Var}(Z)=1.$$
+
+The code uses unscaled $t_5$ theoretical quantiles against standardised MSFT returns; its fitted line accommodates the scale difference. Compare curvature and tail alignment, not proximity to the 45-degree identity line.
+
+A straighter plot would support this reference as a better marginal approximation for this sample. Five degrees of freedom are not estimated here. A symmetric Student-t distribution cannot explain systematic asymmetry, and independent t draws would not explain dependence in squared returns. Distributional shape and dynamic volatility require separate modelling decisions.
+
+```{r qq-student}
+car::qqPlot(X_cen[, "MSFT"], distribution = "t", df = 5,
+            ylab = "Standardised MSFT quantiles", envelope = FALSE,
+            main = "MSFT versus Student-t (5 degrees of freedom)", id = FALSE)
+```
+
+# Shape characteristics and boxplots
+
+## Location, dispersion, skewness and kurtosis
+
+The code reports a mean, a sample standard deviation and central-moment shape coefficients. For one return series, define
+
+$$\bar r=\frac1T\sum_{t=1}^{T}r_t,\qquad
+s^2=\frac{1}{T-1}\sum_{t=1}^{T}(r_t-\bar r)^2,\qquad
+m_k=\frac1T\sum_{t=1}^{T}(r_t-\bar r)^k.$$
+
+The reported shape statistics are
+
+$$\widehat{\operatorname{Skew}}=\frac{m_3}{m_2^{3/2}},\qquad
+\widehat{\operatorname{Kurt}}=\frac{m_4}{m_2^2},\qquad
+\widehat{\operatorname{ExKurt}}=\frac{m_4}{m_2^2}-3.$$
+
+These ratios use denominator-$T$ central moments, while the displayed standard deviation uses denominator $T-1$. They are not finite-sample bias-corrected shape estimators. Different packages can therefore report slightly different values.
+
+Negative skewness means negative deviations dominate the standardised third moment; it does not determine the fraction above the mean. Normal-distribution kurtosis is three. High sample kurtosis indicates substantial influence of extreme standardised deviations, but cannot establish the mathematical rate of tail decay from a finite sample. Both coefficients are sensitive to outliers and require appropriate finite population moments for their usual population interpretation.
+
+```{r moments}
+moments <- function(x) {
+  d <- x - mean(x)
+  m2 <- mean(d^2)
+  c(Mean = mean(x), SD = sd(x), Skewness = mean(d^3) / m2^1.5,
+    Kurtosis = mean(d^4) / m2^2, Excess.Kurtosis = mean(d^4) / m2^2 - 3)
+}
+mom <- apply(coredata(X_log), 2, moments)
+knitr::kable(mom, digits = 5, caption = "Distributional moments of daily log returns")
+```
+
+## Boxplots: robust central summaries and extreme observations
+
+The box displays the median and Tukey hinges. The whiskers reach the most extreme observations lying within 1.5 hinge-spreads of the respective hinges. Hinges are close to quartiles but need not equal type-7 quartiles in every sample.
+
+Points beyond the whiskers are flagged observations, not automatically errors. Financial returns can legitimately produce many such points. The boxplot discards time ordering: it cannot distinguish isolated shocks from clusters of turbulence. Compare central spread, median position and the balance of upper and lower extremes.
+
+```{r boxplots}
+boxplot(coredata(X_log), main = "Continuously compounded daily returns",
+        ylab = "Log return", col = "brown1")
+abline(h = 0, col = "grey50", lty = 2)
+```
+
+# Serial dependence
+
+## Autocovariance and autocorrelation
+
+For a covariance-stationary series,
+
+$$\gamma(k)=\operatorname{Cov}(r_t,r_{t-k}),\qquad
+\rho(k)=\frac{\gamma(k)}{\gamma(0)}.$$
+
+For complete observations and default demeaning, the sample convention used by `acf()` is
+
+$$\widehat\gamma(k)=\frac1T\sum_{t=k+1}^{T}
+(r_t-\bar r)(r_{t-k}-\bar r),\qquad
+\widehat\rho(k)=\frac{\widehat\gamma(k)}{\widehat\gamma(0)}.$$
+
+The first call prints autocorrelations; the second prints autocovariances. Because numeric vectors are passed, lag one means one retained observation. If missing-data removal creates internal gaps, adjacent retained observations need not correspond to adjacent trading intervals. Check the missing-data report before interpreting the ACF as a regular daily-lag statistic.
+
+```{r acf-values}
+acf(coredata(X_log[, "AMZN"]), lag.max = 50, plot = FALSE)
+acf(coredata(X_log[, "AMZN"]), lag.max = 50, type = "covariance", plot = FALSE)
+```
+
+## ACF of returns: dependence in the level of returns
+
+Lag zero is identically one and carries no evidence about predictability. At positive lags, a positive coefficient indicates same-direction linear association; a negative coefficient indicates opposite-direction association at that lag.
+
+The default approximate white-noise reference bands are
+
+$$\pm\frac{1.96}{\sqrt T}.$$
+
+They are pointwise benchmarks under restrictive assumptions. With many lags and assets, occasional crossings can arise by chance; conditional heteroskedasticity can also invalidate a naive reading of these limits. Look for persistent patterns, consider economic magnitude, and avoid interpreting one crossing as a profitable trading opportunity.
+
+**Small ACF values do not prove independence**, market efficiency or absence of nonlinear predictability. The squared-return plots address a different aspect of dependence.
+
+```{r acf-returns, fig.height=7}
+local({
+  old <- par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+  on.exit(par(old))
+
+  assets <- c("MCD", "GE", "AMZN", "^GSPC")
+  column_names <- colnames(X_log)
+  column_names[column_names == "X.GSPC"] <- "^GSPC"
+  positions <- match(assets, column_names)
+
+  if (anyNA(positions)) {
+    stop("Missing columns: ", paste(assets[is.na(positions)], collapse = ", "))
+  }
+
+  for (i in seq_along(assets)) {
+    label <- if (assets[i] == "^GSPC") "S&P 500" else assets[i]
+
+    acf(
+      as.numeric(X_log[, positions[i]]),
+      lag.max = 50,
+      main = label,
+      lwd = 2,
+      col = "red"
+    )
+  }
+})
+```
+
+## ACF of squared returns: dependence in return magnitude
+
+The plotted quantity at lag $k$ is an estimate of $\operatorname{Corr}(r_t^2,r_{t-k}^2)$. **Squaring discards the sign and emphasises large movements**. Positive persistence is consistent with volatility clustering: unusually large movements tend to occur near other large movements, regardless of direction.
+
+For intuition, a conditional-scale representation is
+
+$$r_t=\mu+\sigma_t\varepsilon_t,\qquad
+\operatorname{E}(\varepsilon_t\mid\mathcal F_{t-1})=0,\qquad
+\operatorname{E}(\varepsilon_t^2\mid\mathcal F_{t-1})=1.$$
+
+With predictable $\sigma_t$, the conditional variance is $\sigma_t^2$. It can be persistent even when returns themselves have zero autocorrelation. Raw squared returns are a rough volatility proxy; squared demeaned returns $(r_t-\bar r)^2$ isolate deviations from the sample mean more directly.
+
+The existence of a population correlation for squared returns requires finite fourth moments. Extreme observations can dominate its sample estimate. These plots motivate further volatility analysis, but do not identify an ARCH/GARCH specification or estimate conditional variances. Absolute-return ACFs are a useful sensitivity check.
+
+```{r acf-squared-returns, fig.height=7}
+local({
+  old <- par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+  on.exit(par(old))
+
+  assets <- c("MCD", "GE", "AMZN", "^GSPC")
+  column_names <- colnames(X_log)
+  column_names[column_names == "X.GSPC"] <- "^GSPC"
+  positions <- match(assets, column_names)
+
+  if (anyNA(positions)) {
+    stop("Missing columns: ",
+         paste(assets[is.na(positions)], collapse = ", "))
+  }
+
+  for (i in seq_along(assets)) {
+    label <- if (assets[i] == "^GSPC") "S&P 500" else assets[i]
+
+    acf(
+      as.numeric(X_log[, positions[i]])^2,
+      lag.max = 50,
+      main = paste(label, "squared returns"),
+      lwd = 2,
+      col = "steelblue"
+    )
+  }
+})
+```
+
+# Mean returns and covariance matrix
+
+## Daily estimates and their interpretation
+
+For the $N$-vector of log returns $\mathbf r_t$,
+
+$$\widehat{\boldsymbol\mu}=\frac1T\sum_{t=1}^{T}\mathbf r_t,\qquad
+\widehat\Sigma=\frac{1}{T-1}\sum_{t=1}^{T}
+(\mathbf r_t-\widehat{\boldsymbol\mu})
+(\mathbf r_t-\widehat{\boldsymbol\mu})'.$$
+
+The diagonal contains variances and the off-diagonal elements contain contemporaneous covariances. Standard deviations are the square roots of diagonal elements. A common sample gives a coherent positive-semidefinite sample covariance matrix; pairwise missing-data deletion need not do so.
+
+## Annualisation and serial covariance
+
+For an $h$-period sum of log returns with a constant mean,
+
+$$\operatorname{E}\!\left(\sum_{j=1}^{h}r_{t+j}\right)=h\mu,$$
+
+without requiring independence. Under covariance stationarity, its variance is
+
+$$\operatorname{Var}\!\left(\sum_{j=1}^{h}r_{t+j}\right)
+=h\gamma(0)+2\sum_{k=1}^{h-1}(h-k)\gamma(k).$$
+
+Writing $\Gamma(k)=\operatorname{Cov}(\mathbf r_t,\mathbf r_{t-k})$, the multivariate counterpart is
+
+$$\Sigma_h=h\Gamma(0)+\sum_{k=1}^{h-1}(h-k)
+\left[\Gamma(k)+\Gamma(k)'\right].$$
+
+The code uses the special case of negligible nonzero-lag covariance matrices:
+
+$$\widehat{\boldsymbol\mu}_{\mathrm{ann}}=252\widehat{\boldsymbol\mu},\qquad
+\widehat\Sigma_{\mathrm{ann}}=252\widehat\Sigma,\qquad
+\widehat s_{i,\mathrm{ann}}=\sqrt{252}\,s_i.$$
+
+Zero own-return autocorrelations alone do not establish zero cross-asset leadâlag covariances. These annual covariance estimates are unconditional scaling estimates, not forecasts of the next year's conditional risk.
+
+## Growth is not the expected simple return
+
+The final column reports $\exp(252\bar r_i)-1$, the geometric growth estimate already used above. In general, exponentiating an expected log return does not give the expected simple return. If daily log returns were iid normal with mean $\mu$ and variance $\sigma^2$, then
+
+$$\operatorname{E}(R^{(h)})=\exp\!\left(h\mu+\frac{h\sigma^2}{2}\right)-1.$$
+
+This is an illustrative model identity, not an additional estimate in the table. The normality and independence diagnostics explain why applying it mechanically would be questionable.
+
+## Sampling uncertainty
+
+Under iid observations, a benchmark standard error of a daily sample mean is $s_i/\sqrt T$. With stationary serial dependence and suitably summable covariances, its large-sample variance instead involves the long-run variance:
+
+$$\operatorname{Var}(\bar r)\approx\frac1T
+\left[\gamma(0)+2\sum_{k=1}^{\infty}\gamma(k)\right].$$
+
+Point estimates of mean returns can therefore be imprecise even in a multi-year sample. This notebook does not report confidence intervals; its rankings should not be interpreted as statistically established differences in expected returns.
+
+```{r annualised-moments}
+mu_log <- colMeans(X_log)
+Sigma_log <- cov(coredata(X_log))
+sd_log <- sqrt(diag(Sigma_log))
+mu <- mu_log * annual_scale
+Sigma <- Sigma_log * annual_scale
+sd_annual <- sd_log * sqrt(annual_scale)
+annual_summary <- data.frame(
+  Daily_log_mean = mu_log, Daily_log_SD = sd_log,
+  Annual_log_mean = mu, Annual_log_SD = sd_annual,
+  Annual_geometric_growth = expm1(mu))
+knitr::kable(annual_summary, digits = 5, caption = "Daily and annualised log-return estimates")
+knitr::kable(Sigma_log, digits = 7, caption = "Daily log-return covariance matrix")
+knitr::kable(Sigma, digits = 5, caption = "Annualised log-return covariance matrix")
+```
+
+# Synthesis: writing the empirical conclusions
+
+Organise the evidence into recurring empirical regularities, including non-normal daily tails, weak linear serial association and dependence in return magnitude. Treat these as questions for the present sample, not conclusions to assume in advance.
+
+| Empirical question | Evidence in this notebook | What to report after execution |
+|:---|:---|:---|
+| Which assets have the greatest realised variability? | Return plots, standard deviations and boxplots | Sample dates, measure and magnitude; distinguish typical spread from extreme days |
+| Does normality approximate the tails? | Histogram overlays, QQ plots and excess kurtosis | Direction and extent of tail departures; identify influential observations |
+| How large are historical downside thresholds? | Direct and transformed-quantile VaR | Position value, currency, one-day horizon, confidence and quantile convention |
+| Do assets move together? | Scatterplots and correlation matrix | Strength and sign of association; avoid causal or crisis-tail claims |
+| Is there linear serial dependence? | Return ACFs | Lag pattern and magnitude, with the limitations of pointwise bands |
+| Is volatility clustered? | Time plots and squared-return ACFs | Persistence in magnitude, distinguished from direction predictability |
+| Are annual estimates meaningful? | Mean and covariance tables | Return definition, scaling assumptions and sample limitations |
+
+## Session information
+
+```{r session-information}
+sessionInfo()
+```
+
+<!-- # Reproducibility and references -->
+
+<!-- The download chunk saves an RDS snapshot containing raw series, adjusted prices, -->
+
+<!-- requested dates and the retrieval time. Keep that file with the notebook if exact -->
+
+<!-- reproduction matters: a fixed date window alone does not prevent provider revisions. -->
+
+<!-- The current code downloads anew on each run and does not automatically reload a -->
+
+<!-- saved snapshot. State whether missing prices were interpolated and retain the -->
+
+<!-- session information below when sharing empirical results. -->
+
+<!-- The analytical code from the supplied version is retained, including the QQ-plot and -->
+
+<!-- ACF column-name fixes. Only the example export filename is updated. Formulae and -->
+
+<!-- interpretation notes have been expanded, the malformed minus sign has been corrected, -->
+
+<!-- and no numerical results have been fabricated. -->
+
+<!-- - Zivot, E. (2021 online version). *Introduction to Computational Finance and Financial -->
+
+<!--   Econometrics with R*. [Chapter 5: Descriptive Statistics for Financial Data](https://bookdown.org/compfinezbook/introcompfinr/Descriptive-Statistics-for-Financial-Data.html). -->
+
+<!--   Main teaching reference; chapter marked updated 4 May 2021. -->
+
+<!-- - R Core Team. [Sample quantiles](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/quantile.html). -->
+
+<!--   Implementation reference for the type-7 convention. -->
+
+<!-- - R Core Team. [Auto- and cross-covariance and correlation estimation](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/acf.html). -->
+
+<!--   Implementation reference for the ACF calculations. -->
+
+<!-- - PerformanceAnalytics. [Annualised return calculation](https://search.r-project.org/CRAN/refmans/PerformanceAnalytics/html/Return.annualized.html). -->
+
+<!--   Implementation reference for geometric chaining. -->
