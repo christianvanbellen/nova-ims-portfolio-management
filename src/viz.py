@@ -165,3 +165,127 @@ def growth_of_one(
     ax.margins(x=0.06)
     ax.legend(loc="upper left", ncols=4)
     return ax, wealth
+
+
+# --------------------------------------------------------------------------- #
+# B2 -- Figure 2.1, log returns over time
+# --------------------------------------------------------------------------- #
+
+def return_panels(series_by_freq: dict[str, pd.Series], ticker: str) -> tuple[plt.Figure, np.ndarray]:
+    """One stacked panel per frequency on a shared date axis.
+
+    Each panel keeps its own y-scale -- a monthly move is several daily ones,
+    and a common scale would flatten the daily clusters the figure exists to show.
+    """
+    fig, axes = plt.subplots(len(series_by_freq), 1, figsize=(8.4, 6.6), sharex=True)
+    for ax, (frequency, series) in zip(axes, series_by_freq.items()):
+        ax.plot(series.index, series, color=color_for(ticker), linewidth=0.7)
+        ax.axhline(0, color=cfg.INK_SECONDARY, linewidth=0.6, zorder=1)
+        ax.set_ylabel(f"{frequency.capitalize()} log return (%)")
+    axes[-1].set_xlabel("Year")
+    return fig, axes
+
+
+# --------------------------------------------------------------------------- #
+# B3 -- Figure 2.2, histogram against a fitted normal, and a Q-Q plot
+# --------------------------------------------------------------------------- #
+
+def distribution_pair(series: pd.Series, ticker: str, axes: np.ndarray, label: str) -> None:
+    """Histogram with the moment-matched normal density, beside a normal Q-Q plot."""
+    from scipy import stats
+
+    x = series.dropna()
+    mu, sd = x.mean(), x.std(ddof=1)
+    hist_ax, qq_ax = axes
+
+    bins = min(120, max(20, int(np.sqrt(len(x)) * 1.5)))
+    hist_ax.hist(x, bins=bins, density=True, color=color_for(ticker), alpha=0.85,
+                 edgecolor=cfg.SURFACE, linewidth=0.4, label=f"{ticker} empirical")
+    grid = np.linspace(x.min(), x.max(), 400)
+    hist_ax.plot(grid, stats.norm.pdf(grid, mu, sd), label="Normal, same mean and SD", **cfg.BENCHMARK_STYLE)
+    hist_ax.set_xlabel(f"{label} log return (%)")
+    hist_ax.set_ylabel("Density")
+    hist_ax.legend(loc="upper left")
+
+    qq_plot(x, qq_ax, ticker, label=f"{label} (standardised)")
+
+
+def qq_plot(x: pd.Series, ax: plt.Axes, ticker: str, label: str, dist=None, dist_label: str = "normal") -> None:
+    """Sample quantiles of the standardised series against a reference distribution.
+
+    `dist` is a frozen scipy distribution with unit variance; the default is the
+    standard normal. Points off the 45-degree line in the tails are fat tails.
+    """
+    from scipy import stats
+
+    dist = dist or stats.norm()
+    z = np.sort(((x - x.mean()) / x.std(ddof=1)).to_numpy())
+    probs = (np.arange(1, len(z) + 1) - 0.5) / len(z)
+    theory = dist.ppf(probs)
+    lim = max(np.abs(z).max(), np.abs(theory).max()) * 1.05
+    ax.plot([-lim, lim], [-lim, lim], zorder=1, **cfg.BENCHMARK_STYLE)
+    ax.scatter(theory, z, s=9, color=color_for(ticker), edgecolor=cfg.SURFACE, linewidth=0.3, zorder=3)
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+    ax.set_aspect("equal")
+    ax.set_xlabel(f"Theoretical quantile, {dist_label}")
+    ax.set_ylabel(f"Sample quantile, {label.lower()}")
+
+
+# --------------------------------------------------------------------------- #
+# B6, B7 -- Figure 2.3, ACF of raw, absolute and squared returns
+# --------------------------------------------------------------------------- #
+
+ACF_TITLES = {"raw": "Raw returns", "absolute": "Absolute returns", "squared": "Squared returns"}
+
+
+def acf_panels(acf: pd.DataFrame, ticker: str, label: str) -> tuple[plt.Figure, np.ndarray]:
+    """Three ACF panels side by side on a shared y-scale.
+
+    The shared scale is the point: the raw ACF only looks small next to the
+    absolute and squared ones if all three are read off the same axis. The
+    shaded band is the iid 95% band; the dotted line on the raw panel is the
+    heteroskedasticity-robust band the verdict is judged against.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(10.4, 3.4), sharey=True)
+    lags = acf.index.to_numpy()
+    top = max(0.25, float(acf[list(ACF_TITLES)].abs().max().max()) * 1.1)
+    for ax, (column, title) in zip(axes, ACF_TITLES.items()):
+        ax.fill_between(lags, -acf["band"], acf["band"], color=cfg.GRID_COLOR, alpha=0.8,
+                        step="mid", zorder=1, label="95% band, iid")
+        ax.bar(lags, acf[column], width=0.6, color=color_for(ticker), zorder=3)
+        ax.axhline(0, color=cfg.INK_SECONDARY, linewidth=0.6, zorder=2)
+        if column == "raw":
+            for sign in (1, -1):
+                ax.plot(lags, sign * acf["robust_band"], color=cfg.INK_SECONDARY, linestyle=":",
+                        linewidth=1.2, zorder=4, label="95% band, robust" if sign == 1 else None)
+            ax.legend(loc="upper right")
+        ax.set_title(title)
+        ax.set_xlabel("Lag")
+        ax.set_ylim(-top, top)
+    axes[0].set_ylabel(f"Autocorrelation, {label}")
+    return fig, axes
+
+
+# --------------------------------------------------------------------------- #
+# B11 -- Figure 2.4, news impact curve
+# --------------------------------------------------------------------------- #
+
+def news_impact_plot(
+    curves: dict[str, pd.Series], ticker: str, reference: str, ax: plt.Axes | None = None,
+) -> plt.Axes:
+    """Next-period variance against today's shock; the symmetric model as a grey reference."""
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6.8, 4.2))
+    for name, curve in curves.items():
+        style = dict(cfg.BENCHMARK_STYLE) if name == reference else {"color": color_for(ticker)}
+        ax.plot(curve.index, curve, label=f"{name} (symmetric reference)" if name == reference else name, **style)
+        # Direct label at the right-hand end, so identity never rests on colour alone.
+        ax.annotate(name, xy=(curve.index[-1], curve.iloc[-1]), xytext=(4, 0), textcoords="offset points",
+                    va="center", fontsize=8, color=cfg.INK_SECONDARY)
+    ax.axvline(0, color=cfg.INK_SECONDARY, linewidth=0.6, zorder=1)
+    ax.set_xlabel("Shock today, ε_t (% return)")
+    ax.set_ylabel("Conditional variance tomorrow (%²)")
+    ax.margins(x=0.08)
+    ax.legend(loc="upper center")
+    return ax
