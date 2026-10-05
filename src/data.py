@@ -1,0 +1,278 @@
+"""Download, align and audit the price panel; build the return frames.
+
+Covers workstream A tasks A2-A6. Nothing is written to disk: prices are pulled
+from Yahoo Finance on every run and the extraction date is carried on the
+`Panel` object so every table and figure can quote it.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+from . import config as cfg
+
+
+# --------------------------------------------------------------------------- #
+# A2 -- download
+# --------------------------------------------------------------------------- #
+
+def download_raw(tickers: list[str] | None = None) -> tuple[pd.DataFrame, pd.DataFrame, date]:
+    """Download the full available history for `tickers`.
+
+    Returns (close, volume, extraction_date). Prices are `auto_adjust=True`, so
+    they are adjusted for splits and dividends (definitions SS5).
+    """
+    tickers = list(tickers or cfg.ALL_TICKERS)
+    raw = yf.download(
+        tickers,
+        period="max",
+        auto_adjust=True,
+        progress=False,
+        threads=False,
+        group_by="column",
+    )
+    if raw.empty:
+        raise RuntimeError("Yahoo Finance returned no data -- check the network and retry.")
+
+    close = raw["Close"].reindex(columns=tickers)
+    volume = raw["Volume"].reindex(columns=tickers)
+    return close, volume, date.today()
+
+
+# --------------------------------------------------------------------------- #
+# A3 -- calendar and alignment
+# --------------------------------------------------------------------------- #
+
+@dataclass
+class Panel:
+    """The aligned panel plus every number the data-quality tables need."""
+
+    prices: pd.DataFrame          # dates x tickers, NYSE calendar, gaps filled <= FFILL_LIMIT
+    prices_raw: pd.DataFrame      # same index, before any forward-fill
+    volume: pd.DataFrame          # same index
+    risk_free: pd.Series          # ^IRX, annualised percent
+    calendar: pd.DatetimeIndex    # NYSE sessions in the panel period
+    extraction_date: date
+    full_history: pd.DataFrame = field(repr=False)   # untrimmed close, for A4
+    full_volume: pd.DataFrame = field(repr=False)    # untrimmed volume, for A4
+    dropped_offcalendar: dict[str, int] = field(default_factory=dict)
+    fills: dict[str, int] = field(default_factory=dict)
+    unpatched_gaps: pd.DataFrame = field(default_factory=pd.DataFrame)
+
+    @property
+    def assets(self) -> list[str]:
+        return [t for t in cfg.ASSET_ORDER if t in self.prices.columns]
+
+    @property
+    def full_panel_start(self) -> pd.Timestamp:
+        """First date on which all six assets have a price."""
+        return self.prices[self.assets].dropna().index[0]
+
+
+def _longest_interior_nan_run(series: pd.Series) -> int:
+    """Longest run of consecutive missing sessions after the first observation."""
+    first = series.first_valid_index()
+    if first is None:
+        return 0
+    flags = series.loc[first:].isna().to_numpy()
+    longest = run = 0
+    for flag in flags:
+        run = run + 1 if flag else 0
+        longest = max(longest, run)
+    return longest
+
+
+def build_panel(
+    close: pd.DataFrame,
+    volume: pd.DataFrame,
+    extraction_date: date,
+    start: str = cfg.PANEL_START,
+) -> Panel:
+    """Reindex every series onto the NYSE calendar and patch short interior gaps.
+
+    The calendar is the set of dates `SPY` trades (definitions SS4). Pre-entry
+    cells stay NaN -- never zero- or back-filled. Interior gaps are
+    forward-filled up to `FFILL_LIMIT` sessions; anything longer is recorded in
+    `unpatched_gaps` and left as NaN.
+    """
+    calendar = close[cfg.CALENDAR_TICKER].dropna().index
+    calendar = calendar[calendar >= pd.Timestamp(start)]
+
+    tradables = cfg.ASSET_ORDER + list(cfg.BENCHMARKS)
+
+    # Observations that exist but fall outside NYSE sessions -- BTC's weekends.
+    dropped = {}
+    for ticker in tradables:
+        observed = close[ticker].dropna().index
+        observed = observed[observed >= pd.Timestamp(start)]
+        dropped[ticker] = int(len(observed) - len(observed.intersection(calendar)))
+
+    prices_raw = close.reindex(calendar)[tradables]
+
+    # Forward-fill interior gaps only, bounded by FFILL_LIMIT.
+    prices = prices_raw.copy()
+    fills: dict[str, int] = {}
+    gap_rows = []
+    for ticker in tradables:
+        column = prices_raw[ticker]
+        first = column.first_valid_index()
+        if first is None:
+            fills[ticker] = 0
+            continue
+        interior = column.loc[first:]
+        filled = interior.ffill(limit=cfg.FFILL_LIMIT)
+        fills[ticker] = int(interior.isna().sum() - filled.isna().sum())
+        prices.loc[first:, ticker] = filled
+
+        # Anything still missing after the fill is a gap we report rather than patch.
+        if filled.isna().any():
+            flags = filled.isna()
+            block = (flags != flags.shift()).cumsum()[flags]
+            for _, dates in filled.index.to_series()[flags].groupby(block):
+                gap_rows.append(
+                    {
+                        "ticker": ticker,
+                        "gap_start": dates.iloc[0],
+                        "gap_end": dates.iloc[-1],
+                        "sessions": len(dates),
+                    }
+                )
+
+    risk_free = close[cfg.RISK_FREE_TICKER].reindex(calendar).ffill(limit=cfg.FFILL_LIMIT)
+
+    return Panel(
+        prices=prices,
+        prices_raw=prices_raw,
+        volume=volume.reindex(calendar)[tradables],
+        risk_free=risk_free,
+        calendar=calendar,
+        extraction_date=extraction_date,
+        full_history=close,
+        full_volume=volume,
+        dropped_offcalendar=dropped,
+        fills=fills,
+        unpatched_gaps=pd.DataFrame(gap_rows, columns=["ticker", "gap_start", "gap_end", "sessions"]),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# A4 -- Table 1.1, data availability
+# --------------------------------------------------------------------------- #
+
+def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.DataFrame:
+    """Table 1.1 -- history and liquidity per asset, over each asset's full history.
+
+    Every column, median volume included, is measured over the asset's own full
+    history rather than the panel, because the question the table answers is
+    whether the asset clears the brief's 15-year minimum. Measured this way the
+    table reconciles with definitions SS3.
+    """
+    tickers = tickers or panel.assets
+    meta = {**cfg.UNIVERSE, **cfg.BENCHMARKS}
+    asof = pd.Timestamp(panel.extraction_date)
+
+    rows = []
+    for ticker in tickers:
+        history = panel.full_history[ticker].dropna()
+        first = history.index[0]
+        years = (asof - first).days / 365.25
+        obs_per_year = len(history) / years
+        median_volume = panel.full_volume[ticker].median()
+        info = meta.get(ticker, {})
+        rows.append(
+            {
+                "Ticker": ticker,
+                "Name": info.get("name", ticker),
+                "Asset class": info.get("asset_class", "Benchmark"),
+                "Instrument": info.get("instrument", "ETF" if ticker == "SPY" else "Index"),
+                "First obs.": first.date().isoformat(),
+                "Years": years,
+                "Obs./yr": obs_per_year,
+                "Median volume": median_volume,
+                f"Meets {cfg.MIN_YEARS_REQUIRED}y": "Yes" if years >= cfg.MIN_YEARS_REQUIRED else "No",
+            }
+        )
+    return pd.DataFrame(rows).set_index("Ticker")
+
+
+# --------------------------------------------------------------------------- #
+# A5 -- Table 1.2, data quality
+# --------------------------------------------------------------------------- #
+
+def quality_table(panel: Panel, tickers: list[str] | None = None) -> pd.DataFrame:
+    """Table 1.2 -- missing and stale observations per asset, within the panel.
+
+    `% zero-return days` is measured on the final, filled series, because that is
+    what the analysis consumes; forward-filled sessions therefore show up here as
+    zero returns, which is the honest reading.
+    """
+    tickers = tickers or panel.assets
+    rows = []
+    for ticker in tickers:
+        raw = panel.prices_raw[ticker]
+        first = raw.first_valid_index()
+        interior_raw = raw.loc[first:]
+        missing = int(interior_raw.isna().sum())
+
+        final = panel.prices[ticker].loc[first:]
+        log_returns = np.log(final).diff().dropna()
+        zero_share = float((log_returns.abs() < 1e-12).mean() * 100)
+
+        n_filled = panel.fills.get(ticker, 0)
+        off_calendar = panel.dropped_offcalendar.get(ticker, 0)
+
+        treatments = []
+        if off_calendar:
+            treatments.append(f"{off_calendar:,} off-calendar obs. dropped")
+        if n_filled:
+            treatments.append(f"{n_filled} session(s) forward-filled")
+        if missing - n_filled > 0:
+            treatments.append(f"{missing - n_filled} left as NaN")
+        if not treatments:
+            treatments.append("None required")
+
+        rows.append(
+            {
+                "Ticker": ticker,
+                "Panel start": first.date().isoformat(),
+                "Obs.": int(final.notna().sum()),
+                "Missing obs.": missing,
+                "Longest gap (sessions)": _longest_interior_nan_run(interior_raw),
+                "% zero-return days": zero_share,
+                "Treatment applied": "; ".join(treatments),
+            }
+        )
+    return pd.DataFrame(rows).set_index("Ticker")
+
+
+# --------------------------------------------------------------------------- #
+# A6 -- return frames
+# --------------------------------------------------------------------------- #
+
+def build_returns(panel: Panel, tickers: list[str] | None = None) -> dict[tuple[str, str], pd.DataFrame]:
+    """Six return frames, keyed `(frequency, kind)` for frequency in daily/weekly/
+    monthly and kind in log/simple.
+
+    Weekly and monthly log returns are the *sum* of daily log returns over the
+    period (definitions SS5); the simple frames are the equivalent compounded
+    figure, `exp(sum) - 1`, so the two kinds describe the same price moves.
+    """
+    tickers = tickers or (panel.assets + [cfg.PERFORMANCE_BENCHMARK])
+    prices = panel.prices[tickers]
+    daily_log = np.log(prices).diff()
+
+    frames: dict[tuple[str, str], pd.DataFrame] = {}
+    for frequency, rule in cfg.FREQUENCIES.items():
+        if rule is None:
+            log_returns = daily_log.iloc[1:]
+        else:
+            # min_count=1 keeps pre-entry periods NaN instead of summing to zero.
+            log_returns = daily_log.resample(rule).sum(min_count=1)
+        frames[(frequency, "log")] = log_returns
+        frames[(frequency, "simple")] = np.expm1(log_returns)
+    return frames
