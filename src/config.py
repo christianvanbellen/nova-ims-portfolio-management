@@ -158,6 +158,21 @@ ASSET_COLORS: dict[str, str] = {
 
 #: Benchmarks read as a reference line, not a competitor: neutral grey, dashed.
 BENCHMARK_COLOR = "#52514e"
+
+#: One fixed colour per strategy. EW is the brief's benchmark, so it takes the
+#: benchmark grey. The other seven take slots 1-7 of the same validated palette,
+#: in order. Strategies and assets never share a figure, so reusing the slots
+#: cannot confuse the two.
+STRATEGY_COLORS: dict[str, str] = {
+    "EW": BENCHMARK_COLOR,
+    "GMV": "#2a78d6",   # blue
+    "MV": "#eb6834",    # orange
+    "MSR": "#1baf7a",   # aqua
+    "IV": "#eda100",    # yellow
+    "ERC": "#e87ba4",   # magenta
+    "MDP": "#008300",   # green
+    "MDC": "#4a3aa7",   # violet
+}
 BENCHMARK_STYLE: dict[str, object] = {"color": BENCHMARK_COLOR, "linestyle": "--", "linewidth": 1.8}
 
 #: Diverging pair for correlation heatmaps, with a neutral grey midpoint at 0.

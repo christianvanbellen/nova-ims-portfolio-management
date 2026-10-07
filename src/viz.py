@@ -289,3 +289,129 @@ def news_impact_plot(
     ax.margins(x=0.08)
     ax.legend(loc="upper center")
     return ax
+
+
+# --------------------------------------------------------------------------- #
+# E5 -- Figure 4.1, Sharpe ratio across the 100 experiments
+# --------------------------------------------------------------------------- #
+
+def strategy_color(strategy: str) -> str:
+    return cfg.STRATEGY_COLORS.get(strategy, cfg.BENCHMARK_COLOR)
+
+
+def sharpe_boxplot(values: pd.DataFrame, benchmark: str = "EW", ax: plt.Axes | None = None) -> plt.Axes:
+    """Horizontal box plots, one row per strategy, sorted by median (best on top).
+
+    Boxes span the IQR and whiskers the 10th-90th percentiles, matching Table
+    4.3. The benchmark's median is a dashed grey reference line.
+    """
+    order = values.median().sort_values().index.tolist()
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7.6, 4.4))
+    parts = ax.boxplot(
+        [values[s].dropna() for s in order], vert=False, whis=(10, 90), widths=0.55,
+        patch_artist=True, showfliers=True,
+        medianprops={"color": cfg.INK_PRIMARY, "linewidth": 1.6},
+        whiskerprops={"color": cfg.INK_SECONDARY, "linewidth": 1.0},
+        capprops={"color": cfg.INK_SECONDARY, "linewidth": 1.0},
+        flierprops={"marker": "o", "markersize": 2.5, "markerfacecolor": cfg.INK_SECONDARY,
+                    "markeredgecolor": "none", "alpha": 0.5},
+    )
+    for box, strategy in zip(parts["boxes"], order):
+        box.set_facecolor(strategy_color(strategy))
+        box.set_alpha(0.85)
+        box.set_edgecolor(cfg.SURFACE)
+        box.set_linewidth(2)
+    ax.set_yticks(range(1, len(order) + 1), order)
+    ax.axvline(values[benchmark].median(), **cfg.BENCHMARK_STYLE, zorder=0,
+               label=f"{benchmark} median ({values[benchmark].median():.2f})")
+    ax.axvline(0, color=cfg.GRID_COLOR, linewidth=1.0, zorder=0)
+    ax.grid(axis="y", visible=False)
+    ax.set_xlabel("Sharpe ratio, net of costs (annualised)")
+    ax.legend(loc="lower right")
+    return ax
+
+
+# --------------------------------------------------------------------------- #
+# E6 -- Figure 4.2, win rate against the equally weighted benchmark
+# --------------------------------------------------------------------------- #
+
+def win_rate_bars(rate: pd.Series, ax: plt.Axes | None = None) -> plt.Axes:
+    """Horizontal bars of the share of experiments beating EW, sorted, 50% reference line."""
+    rate = rate.dropna().sort_values()
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7.0, 3.6))
+    ax.barh(rate.index, rate.to_numpy() * 100, height=0.62,
+            color=[strategy_color(s) for s in rate.index], edgecolor=cfg.SURFACE, linewidth=2)
+    for y, value in enumerate(rate.to_numpy() * 100):
+        ax.text(value + 1, y, f"{value:.0f}%", va="center", fontsize=8, color=cfg.INK_PRIMARY)
+    ax.axvline(50, **cfg.BENCHMARK_STYLE, zorder=0, label="50%: no better than a coin flip")
+    ax.set_xlim(0, 100)
+    ax.grid(axis="y", visible=False)
+    ax.set_xlabel("Experiments in which the strategy's net Sharpe beats EW's (%)")
+    ax.legend(loc="lower right")
+    return ax
+
+
+# --------------------------------------------------------------------------- #
+# E8 -- Figure 4.3, growth of $1 in one experiment
+# --------------------------------------------------------------------------- #
+
+def wealth_paths(paths: dict[str, pd.Series], benchmarks: dict[str, dict], ax: plt.Axes | None = None) -> plt.Axes:
+    """Growth of $1 on a log y-axis. `paths` are strategies in their own colours;
+    `benchmarks` maps a label to a grey line style. Every line is end-labelled."""
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7.8, 4.4))
+    finals = {}
+    for name, wealth in paths.items():
+        ax.plot(wealth.index, wealth, color=strategy_color(name), label=name, zorder=3)
+        finals[name] = (wealth.iloc[-1], strategy_color(name))
+    for label, (wealth, style) in benchmarks.items():
+        ax.plot(wealth.index, wealth, label=label, zorder=2, **style)
+        finals[label] = (wealth.iloc[-1], cfg.INK_SECONDARY)
+
+    ends = pd.Series({k: v[0] for k, v in finals.items()}).sort_values()
+    offsets = _spread(np.log10(ends.to_numpy()), min_gap=0.012)
+    last = max(w.index[-1] for w in paths.values())
+    for name, offset in zip(ends.index, offsets):
+        ax.annotate(f"{name}  ${ends[name]:.2f}", xy=(last, 10.0**offset), xytext=(6, 0),
+                    textcoords="offset points", va="center", fontsize=8, color=cfg.INK_PRIMARY)
+    ax.set_yscale("log")
+    lo, hi = ax.get_ylim()
+    step = next(s for s in (0.02, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0) if (hi - lo) / s <= 7)
+    ax.yaxis.set_major_locator(mpl.ticker.FixedLocator(np.arange(np.ceil(lo / step) * step, hi, step)))
+    ax.yaxis.set_minor_locator(mpl.ticker.NullLocator())
+    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda v, _: f"${v:,.2f}"))
+    ax.axhline(1.0, color=cfg.GRID_COLOR, linewidth=1.0, zorder=1)
+    ax.xaxis.set_major_locator(mpl.dates.MonthLocator(interval=2))
+    ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y-%m"))
+    ax.set_ylabel("Growth of $1 (log scale)")
+    ax.set_xlabel("Month")
+    ax.margins(x=0.02)
+    ax.legend(loc="upper left", ncols=3)
+    return ax
+
+
+# --------------------------------------------------------------------------- #
+# E9 -- Figure 4.4, portfolio weights over time
+# --------------------------------------------------------------------------- #
+
+def weights_area(weights: pd.DataFrame, rebalances: list[pd.Timestamp], ax: plt.Axes | None = None) -> plt.Axes:
+    """Stacked area of daily weights, fixed asset order and colours, rebalance dates marked."""
+    assets = [a for a in cfg.ASSET_ORDER if a in weights.columns]
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7.8, 4.0))
+    ax.stackplot(weights.index, (weights[assets] * 100).T.to_numpy(), labels=assets,
+                 colors=[color_for(a) for a in assets], edgecolor=cfg.SURFACE, linewidth=1.0, alpha=0.9)
+    for i, date in enumerate(rebalances):
+        ax.axvline(date, color=cfg.INK_SECONDARY, linewidth=0.8, linestyle=":", zorder=3,
+                   label="Rebalance" if i == 0 else None)
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("Weight (%)")
+    ax.set_xlabel("Month")
+    ax.xaxis.set_major_locator(mpl.dates.MonthLocator(interval=2))
+    ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y-%m"))
+    ax.margins(x=0)
+    ax.grid(False)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncols=len(assets) + 1)
+    return ax
