@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import inspect
 import itertools
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -77,6 +78,33 @@ class Schedule:
 # C1 -- experiment sampler
 # --------------------------------------------------------------------------- #
 
+def subset_rule(
+    assets: list[str],
+    subset_size: int = cfg.SUBSET_SIZE,
+    groups: dict[str, list[str]] | None = cfg.SUBSET_GROUPS,
+) -> tuple[dict[str, list[str]] | None, int, int]:
+    """Validate the subset design. Returns (groups restricted to `assets`, assets
+    drawn per group, number of possible subsets).
+
+    Stratified: `subset_size` must split evenly across the groups, and every
+    group must hold at least its share. Unstratified (`groups` None): any
+    `subset_size` up to the number of assets.
+    """
+    if groups is None:
+        if not 0 < subset_size <= len(assets):
+            raise ValueError(f"cannot draw {subset_size} of {len(assets)} assets")
+        return None, subset_size, math.comb(len(assets), subset_size)
+    groups = {g: [t for t in members if t in assets] for g, members in groups.items()}
+    groups = {g: members for g, members in groups.items() if members}
+    per_group, remainder = divmod(subset_size, len(groups))
+    if remainder or per_group == 0:
+        raise ValueError(f"{subset_size} assets do not split evenly across {len(groups)} groups")
+    short = [g for g, members in groups.items() if len(members) < per_group]
+    if short:
+        raise ValueError(f"groups {short} hold fewer than {per_group} assets")
+    return groups, per_group, math.prod(math.comb(len(m), per_group) for m in groups.values())
+
+
 def sample_experiments(
     prices: pd.DataFrame,
     schedule: Schedule = Schedule(),
@@ -84,33 +112,49 @@ def sample_experiments(
     seed: int = cfg.SEED,
     subset_size: int = cfg.SUBSET_SIZE,
     assets: list[str] | None = None,
+    groups: dict[str, list[str]] | None = cfg.SUBSET_GROUPS,
 ) -> pd.DataFrame:
     """Draw `n` distinct (window, asset subset) pairs under `seed`.
 
-    Each draw picks a subset uniformly from all `subset_size`-combinations of
-    `assets`, then picks a start uniformly from the positions where every asset
-    *in that subset* has a price on every session of the window, including the
+    Each draw first picks a subset. With `groups` (the default, sectors), it
+    takes `subset_size / len(groups)` assets from every group, uniformly and
+    without replacement within each, so every subset spans every group. With
+    `groups=None` it takes `subset_size` assets uniformly from all of them.
+    Subsets are drawn directly, never enumerated, so the universe can be large.
+
+    It then picks a start uniformly from the positions where every asset *in
+    that subset* has a price on every session of the window, including the
     session before it (the base for the first return). That is the
     availability rule of definitions SS4. A pair already drawn is drawn again.
 
     Columns: `anchor` (session before the first return), `start`,
-    `estimation_end`, `evaluation_start`, `end`, `assets` (a tuple in the fixed
-    asset order) and `btc` (whether `BTC-USD` is in the subset).
+    `estimation_end`, `evaluation_start`, `end` and `assets` (a tuple in the
+    fixed asset order).
     """
     assets = assets or [t for t in cfg.ASSET_ORDER if t in prices.columns]
-    subsets = list(itertools.combinations(assets, subset_size))
+    groups, per_group, _ = subset_rule(assets, subset_size, groups)
+    order = {t: i for i, t in enumerate(assets)}
     available = prices[assets].notna().to_numpy()
     dates = prices.index
     span = schedule.window + 1  # prices needed: the anchor plus one per return
 
     rng = np.random.default_rng(seed)
+
+    def draw_subset() -> tuple[str, ...]:
+        if groups is None:
+            picked = rng.choice(assets, size=subset_size, replace=False)
+        else:
+            picked = [t for members in groups.values()
+                      for t in rng.choice(members, size=per_group, replace=False)]
+        return tuple(sorted(picked, key=order.__getitem__))
+
     eligible: dict[tuple[str, ...], np.ndarray] = {}
     seen: set[tuple[int, tuple[str, ...]]] = set()
     rows = []
     while len(rows) < n:
-        subset = subsets[rng.integers(len(subsets))]
+        subset = draw_subset()
         if subset not in eligible:
-            complete = available[:, [assets.index(t) for t in subset]].all(axis=1)
+            complete = available[:, [order[t] for t in subset]].all(axis=1)
             cumulative = np.concatenate([[0], np.cumsum(complete)])
             anchors = np.arange(len(dates) - span + 1)
             eligible[subset] = anchors[cumulative[anchors + span] - cumulative[anchors] == span]
@@ -131,7 +175,6 @@ def sample_experiments(
                 "evaluation_start": dates[anchor + schedule.estimation + 1],
                 "end": dates[anchor + schedule.window],
                 "assets": subset,
-                "btc": "BTC-USD" in subset,
             }
         )
     return pd.DataFrame(rows).set_index("experiment")
@@ -418,28 +461,56 @@ def failure_log(results: list[BacktestResult]) -> pd.DataFrame:
 # C9 -- Table 3.1, experiment design
 # --------------------------------------------------------------------------- #
 
+def _costs_summary(cost_model: CostModel, assets: list[str]) -> str:
+    """One-way costs grouped by rate, e.g. '2 bp: GLD, TLT; 3 bp: the other 23'."""
+    by_rate: dict[float, list[str]] = {}
+    for a in assets:
+        by_rate.setdefault(cost_model.bp[a], []).append(a)
+    largest = max(by_rate, key=lambda rate: len(by_rate[rate]))
+    parts = [f"{rate:g} bp: {', '.join(members)}" for rate, members in sorted(by_rate.items()) if rate != largest]
+    rest = "every asset" if len(by_rate) == 1 else f"the other {len(by_rate[largest])}"
+    return "; ".join(parts + [f"{largest:g} bp: {rest}"])
+
+
 def design_table(
     experiments: pd.DataFrame,
     calendar: pd.DatetimeIndex,
     schedule: Schedule = Schedule(),
     seed: int = cfg.SEED,
     cost_model: CostModel | None = None,
+    assets: list[str] | None = None,
+    groups: dict[str, list[str]] | None = cfg.SUBSET_GROUPS,
 ) -> pd.DataFrame:
     """Table 3.1 -- the backtest's fixed parameters, then what the sampler drew."""
     cost_model = cost_model or CostModel()
-    assets = sorted({a for subset in experiments["assets"] for a in subset}, key=cfg.ASSET_ORDER.index)
-    n_assets = len(assets)
-    n_subsets = len(list(itertools.combinations(range(n_assets), cfg.SUBSET_SIZE)))
-    n_with_btc = len(list(itertools.combinations(range(n_assets - 1), cfg.SUBSET_SIZE - 1)))
+    assets = assets or list(cfg.ASSET_ORDER)
+    groups, per_group, n_subsets = subset_rule(assets, len(experiments["assets"].iloc[0]), groups)
+    size = len(experiments["assets"].iloc[0])
     n = len(experiments)
     td = cfg.TRADING_DAYS
-    costs = ", ".join(f"{a} {cost_model.bp[a]:g}" for a in cfg.ASSET_ORDER if a in cost_model.bp)
 
     # Share of panel sessions that fall in at least one evaluation year.
     covered = pd.Series(False, index=calendar)
     for _, e in experiments.iterrows():
         covered.loc[e["evaluation_start"]: e["end"]] = True
     eligible = calendar[calendar >= experiments["start"].min()]
+
+    appearances = pd.Series(
+        {a: int(experiments["assets"].map(lambda s, a=a: a in s).sum()) for a in assets}
+    )
+    expected = n * size / len(assets) if groups is None else None
+    subsets = list(experiments["assets"])
+    shared = [len(set(a) & set(b)) for a, b in itertools.combinations(subsets, 2)]
+
+    if groups is None:
+        subset_value = f"{size} of {len(assets)}, uniform ({n_subsets:,} possible subsets)"
+        subset_why = "Drawn uniformly from the whole universe, without replacement"
+    else:
+        subset_value = (f"{size} of {len(assets)}: {per_group} from each of {len(groups)} sectors "
+                        f"({n_subsets:,} possible subsets)")
+        subset_why = ("Stratified by sector, uniform within each, so every portfolio spans every sector "
+                      "and differences between experiments come from which names are held, not from "
+                      "which sectors are missing")
 
     rows = [
         ("Random seed", f"{seed}", "Fixed before any result was seen (definitions §7); numpy default_rng"),
@@ -448,8 +519,7 @@ def design_table(
          "Contiguous NYSE sessions, chronological order kept"),
         ("Estimation / evaluation", f"{schedule.estimation} / {schedule.evaluation} sessions",
          "Brief's suggested split: 2 years in-sample, the 3rd year out-of-sample. Only the 3rd year is scored"),
-        ("Asset subset", f"{cfg.SUBSET_SIZE} of {n_assets} ({n_subsets} possible subsets)",
-         "Drawn uniformly, so assets with short histories are not under-sampled"),
+        ("Asset subset", subset_value, subset_why),
         ("Window start", "Uniform over eligible sessions, given the subset",
          "Eligible means every asset in the subset has a price on every session of the window"),
         ("First estimate", "All returns to the formation date "
@@ -457,7 +527,8 @@ def design_table(
          else f"Trailing {schedule.initial_lookback} sessions",
          "Uses the full 2-year estimation period, as the brief proposes"),
         ("Re-estimates", f"Trailing {schedule.lookback} sessions (1 year), rolling",
-         "Brief's proposed update rule. A shorter window adapts faster to volatility regimes"),
+         f"Brief's proposed update rule: {schedule.lookback / size:.0f} observations per asset at the "
+         f"subset size of {size}"),
         ("Rebalancing", f"Every {schedule.rebalance_every} sessions (quarterly), "
          f"{len(schedule.execution_positions())} trades per experiment",
          "Opening trade at the close of the last estimation session, then each quarter"),
@@ -469,19 +540,25 @@ def design_table(
          "Log returns are reserved for the stylised facts (definitions §5)"),
         ("Constraints", "Long-only, fully invested, no leverage",
          f"Checked on every weight vector to {WEIGHT_TOL:g}; a violation counts as a failure"),
-        ("Transaction costs (bp, one-way)", costs,
+        ("Transaction costs (bp, one-way)", _costs_summary(cost_model, assets),
          "Charged on |Δw| at each trade, opening trade included. Re-run at "
          f"{cfg.COST_STRESS_MULTIPLIER:g}× in workstream F"),
         ("Turnover", "Two-way, Σ|Δw| per year",
          "Excludes the opening trade from cash, which is 100% for every strategy"),
         ("Optimisation failure", "Logged; hold the drifted weights (equal weight if none yet)",
          "No run is dropped (Table A.1)"),
-        ("Experiments including BTC-USD", f"{int(experiments['btc'].sum())} of {n}",
-         f"{n_with_btc} of the {n_subsets} subsets contain BTC-USD, so about "
-         f"{n * n_with_btc / n_subsets:.0f} expected"),
-        ("Distinct subsets drawn", f"{experiments['assets'].nunique()} of {n_subsets}", "—"),
+        ("Distinct subsets drawn", f"{experiments['assets'].nunique()} of {n_subsets:,}",
+         "Almost every experiment holds a different portfolio, so no subset is over-represented"),
+        ("Experiments per asset", f"{appearances.min()} to {appearances.max()} (median {appearances.median():.0f})",
+         (f"Expected {n * per_group / len(groups[next(iter(groups))]):.0f} for a sector of "
+          f"{len(groups[next(iter(groups))])} assets" if groups is not None and
+          len({len(m) for m in groups.values()}) == 1 else f"Expected {expected:.0f}" if expected else "—")),
+        ("Assets shared by two experiments", f"median {np.median(shared):.0f} of {size}",
+         "Subsets overlap, which with overlapping windows is why the 100 experiments are not independent"),
         ("Window starts", f"{experiments['start'].min().date()} to {experiments['start'].max().date()}",
-         "Earliest start is bounded by GOVT, RNMBY or BTC-USD; every subset holds at least one"),
+         f"Eligible from {calendar[0].date()}: the availability rule never binds when every asset has data"
+         if experiments["start"].min() - calendar[0] < pd.Timedelta(days=366) else
+         "Bounded by the latest-listed asset in each subset"),
         ("Last evaluation session", f"{experiments['end'].max().date()}", "—"),
         ("Evaluation coverage", f"{covered.loc[eligible].mean() * 100:.1f}% of sessions",
          "Share of sessions from the earliest start that fall in at least one evaluation year. "
@@ -501,6 +578,7 @@ def inclusion_table(experiments: pd.DataFrame) -> pd.DataFrame:
         rows.append(
             {
                 "Ticker": asset,
+                "Sector": cfg.UNIVERSE[asset]["sector"],
                 "Experiments": int(mask.sum()),
                 "Share %": mask.mean() * 100,
                 "Earliest start": starts.min().date().isoformat(),

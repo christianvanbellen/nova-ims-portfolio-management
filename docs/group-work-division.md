@@ -62,7 +62,7 @@ by output. Status is taken from the definitions changelog (§8).
 | 1b — returns and data treatment | A5b, A6, A9 (treatment prose) | `01_investment_universe` | 2. Data | **Done** on the 25-asset universe (2026-10-07) |
 | 1c — stylised facts | B1–B14 | `02_stylised_facts` | 3. Stylised facts | **Done** on `JPM` (2026-10-07) |
 | 2 — strategies | D1–D12 | `04_strategies` | 4. Methods | **To re-run** on the 25-asset universe |
-| 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | **To re-run**; subset size to revisit |
+| 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | **Done** on the 25-asset universe, 10-asset sector-stratified subsets (2026-10-07) |
 | *Not in the draft* | E1–E10 — experiments and performance | `05_experiments`, `06_performance` | 5. Results | **To re-run** |
 | *Not in the draft* | F1–F6 — robustness and limitations | `07_robustness` | 6. Robustness | Not started |
 | *Not in the draft* | G1–G6 — report, recommendation, submission | — | 1, 7, appendices | Not started |
@@ -149,10 +149,10 @@ re-running the notebooks and redrafting the report sections that quote their num
    - Part 3b — robustness and limitations (F)
    - Part 4 — recommendation, report assembly and submission (G)
 2. **Assign owners**, by name, to each part, plus one document owner (G1).
-3. **Confirm or override** choices C-1 to C-9. In particular, the subset size for 25 assets
-   (definitions §7) and whether to extend the panel to include 2008 (C-2).
-4. **Treat Parts 1a–1c as done in this repo** and re-run Part 2 onwards on the new universe, in
-   order, unless someone is building them independently. If so, say so now, so the two versions do not
+3. **Confirm or override** choices C-1 to C-9. In particular, whether to extend the panel to include
+   2008 (C-2). The subset design is decided: 10 of 25, two per sector (definitions §7).
+4. **Treat Parts 1a–1c and the backtest engine as done in this repo** and re-run the strategies onwards
+   on the new universe, in order, unless someone is building them independently. If so, say so now, so the two versions do not
    diverge.
 5. **Adopt W-4.** Add a shortcomings column to Table 3.2.
 

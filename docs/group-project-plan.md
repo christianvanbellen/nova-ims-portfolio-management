@@ -141,7 +141,7 @@ on. Build and test it before any strategy is written.
 
 | # | Task | Direct output | Format |
 | --- | --- | --- | --- |
-| C1 | Experiment sampler: draw 100 (3-year window, 4-asset subset) pairs under the seed and the availability rule | `experiments` frame | 100 rows. Cols: experiment id, start, end, assets (sorted tuple), sectors in subset |
+| C1 | Experiment sampler: draw 100 (3-year window, 10-asset subset, 2 per sector) pairs under the seed and the availability rule | `experiments` frame | 100 rows. Cols: experiment id, start, end, assets (tuple in the fixed asset order) |
 | C2 | Walk-forward loop: 2y estimation → 1y evaluation, trailing 1y refit, quarterly rebalance | Reusable function | Takes (prices, weight function, cost model) → returns daily portfolio returns, weights and turnover |
 | C3 | **Look-ahead guard**: weights at date *t* use data strictly up to *t*; trades execute at *t+1* | Assertion inside the loop | Must raise, not warn. One unit test that deliberately leaks and must fail |
 | C4 | Weight drift between rebalances | Implemented in C2 | Weights drift with returns; only reset on rebalance dates |
@@ -149,7 +149,7 @@ on. Build and test it before any strategy is written.
 | C6 | Optimisation failure handling: log it, fall back to the previous weights, **never drop the run** | `failures` log | Cols: experiment id, date, strategy, error, fallback used. Appears in the appendix |
 | C7 | Turnover accounting | Returned by C2 | Annualised two-way turnover, percent |
 | C8 | Unit tests: EW on a known panel reproduces hand-computed wealth; zero-cost run matches no-cost path; weights sum to 1 and stay ≥ 0 | Passing test cell | Keep in notebook 03 — it is evidence of rigour for the examiner |
-| C9 | **Table 3.1 — Experiment design** | Summary of the sampler | Cols: parameter, value, rationale. Plus: window coverage, sector composition of the drawn subsets, min/max start date |
+| C9 | **Table 3.1 — Experiment design** | Summary of the sampler | Cols: parameter, value, rationale. Plus: subset design and number of possible subsets, experiments per asset, subset overlap, window coverage, min/max start date. Appendix: Table A3.1 (inclusion per asset), A3.2 (evaluation years), covariance-conditioning diagnostic |
 
 **Done when:** C8 passes and C3's deliberate-leak test fails as designed.
 

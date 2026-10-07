@@ -157,7 +157,11 @@ N_EXPERIMENTS = 100
 WINDOW_YEARS = 3
 ESTIMATION_YEARS = 2
 EVALUATION_YEARS = 1
-SUBSET_SIZE = 4
+SUBSET_SIZE = 10
+#: Draw each subset group by group: SUBSET_SIZE / len(groups) assets from every
+#: group, uniformly within it, so every portfolio spans every sector. None draws
+#: SUBSET_SIZE assets uniformly from the whole universe instead.
+SUBSET_GROUPS: dict[str, list[str]] | None = SECTOR_ASSETS
 REBALANCE_FREQ = "quarterly"
 REBALANCES_PER_YEAR: dict[str, int] = {"monthly": 12, "quarterly": 4, "annual": 1}
 REFIT_LOOKBACK_YEARS = 1  # trailing window for every re-estimate after the first

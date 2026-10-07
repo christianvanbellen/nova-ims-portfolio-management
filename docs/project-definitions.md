@@ -142,7 +142,7 @@ holds.
 | Execution lag | 1 session. Weights formed at close *t*, traded at close *t*+1, earning from *t*+2 |
 | Initial portfolio | Bought out of cash. Its cost is charged; its 100% turnover is excluded from reported turnover |
 | Optimisation failure | Logged; hold the drifted weights (equal weight if none yet); the run is never dropped |
-| Subset size | 4 assets per experiment. **To be revisited in workstream C** for the 25-asset universe (§8) |
+| Asset subset | **10 of 25, sector-stratified**: 2 drawn uniformly from each of the 5 sectors, so every portfolio spans every sector (10⁵ possible subsets). `SUBSET_SIZE` and `SUBSET_GROUPS` in `src/config.py`; groups `None` gives an unstratified draw |
 | Constraints | Long-only, fully invested, no leverage |
 | Expected returns | Sample mean of daily simple returns over the estimation window, ×252 |
 | Covariance | Sample covariance, ×252. Ledoit–Wolf (constant correlation) is a switch for robustness only. To be re-checked in workstream D (§9) |
@@ -161,7 +161,8 @@ The seed is fixed now and is not re-rolled after seeing results.
 | 2026-10-07 | **Universe rebuilt on the professor's advice to use more assets.** The universe is now 25 assets in five sector groups (§1). It replaces the previous universe entirely. The lessons that universe taught are kept in §9, and git history holds the rest. Stylised-facts share: `JPM`. Panel start kept at 2011-10-01: all 25 assets have data from 2006-04-28, so the panel could include 2008, but the group kept the 15-year panel. |
 | 2026-10-07 | **Workstream A complete on the new universe.** `notebooks/01_investment_universe.ipynb` runs clean top-to-bottom, extraction date 2026-10-07; report §2 redrafted. Universe entries now carry their own sector and cost; asset order, sector groups, colours and `COSTS_BP` are derived from them. Asset colour = sector colour (palette slots 1–5), because 25 assets exceed the palette; Figure 1.2 is now small multiples. New: Table A1.1 (extreme-move screen) and Table A1.2 (corporate-action log, which classifies spin-offs). Table 1.1 reports median **dollar** volume over the panel. |
 | 2026-10-07 | **Workstream B complete on `JPM`.** `notebooks/02_stylised_facts.ipynb` runs clean top-to-bottom; report §3 redrafted. Three rule changes, each made because a test was invalid for this data, not because of the verdict it gave (two of the three make the verdict *weaker*): (1) **fact 3** is tested by moving-block bootstrap on moment *and* quantile skewness. The D'Agostino test's standard error was 6.5× too small under JPM's fat tails, and would have read weekly and monthly as *Supported*; they are now *Partial*. (2) **"Clustering identified"** (facts 6 and the failure log) now means at least one of α, γ significant. The old check only caught the α≈0/β≈1 collapse and missed JPM's monthly β≈0 one. (3) Anderson–Darling computed on the log scale (statsmodels overflowed to ∞). Added: half-life in Table 2.4; robustness tables A2.3 (without the COVID window) and A2.4 (leverage term under AR(1) mean, sample halves, without the window), so every number the report quotes is now printed by the notebook. |
-| 2026-10-07 | **Workstreams C–E to be re-run** against the new universe, in order. Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
+| 2026-10-07 | **Workstream C complete on the new universe.** The asset subset is now **10 of 25, two per sector** (§7), decided by the group before any strategy was run. The brief requires random subsets, and four of 25 would have left most portfolios as four single stocks with no defensive asset. A full-universe reference run was considered and deferred. The sampler now draws subsets directly instead of enumerating them, and drops the old universe-specific column. `notebooks/03_backtest_engine.ipynb` runs clean, with all 10 unit tests passing, both deliberate-leak tests raising `LookAheadError`, and tests 7–8 made universe-agnostic. New diagnostic: covariance conditioning at the subset size (median condition number 18; 24 of 100 experiments hold a financials pair above 0.85). |
+| 2026-10-07 | **Workstreams D–E to be re-run** against the new universe, in order. Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
 
 ---
 
@@ -211,6 +212,16 @@ where the check lives and what it shows for the current universe.
 - The sampled experiments are reproducible under the seed **and** the extraction date, because the set
   of eligible window starts grows as the panel grows.
 - The look-ahead guard must **raise**, and a deliberate-leak test must prove it does.
+- **The subset size is a design decision, not a detail.** It sets how much each portfolio can
+  diversify, how many observations per asset the estimates get (252 / k), and how hard the optimiser's
+  problem is. Fix it before any strategy runs. A rule that suited a small universe (4 of 6) does not
+  carry over: at 4 of 25 most portfolios would be four stocks.
+- **Stratify when the universe has structure.** A uniform draw lets the sector mix vary between
+  experiments, which confounds strategy differences with composition. Drawing a fixed number per
+  sector keeps the mix constant and varies the names.
+- **Never enumerate subsets.** Draw them. C(25, 10) is 3.3 million.
+- **Check the estimation problem the sampler creates** (condition number, most-correlated pair) in C,
+  before the optimisers meet it in D.
 
 ### Strategies (workstream D), to re-check on the new universe
 
@@ -222,8 +233,9 @@ where the check lives and what it shows for the current universe.
   reported, not tuned away. Re-run D12.
 - **MSR is undefined** when no asset's expected return exceeds the risk-free rate. Log it and hold the
   previous weights.
-- The exact QP solver enumerates supports, at a cost of 2ⁿ − 1 for an n-asset subset. That is
-  instant at 4 assets and infeasible at 25, which matters if the subset size grows (§7).
+- The exact QP solver enumerates supports, at a cost of 2ⁿ − 1 for an n-asset subset. It is measured
+  at about 20 ms per solve at 10 assets (about 9 s per strategy over 400 rebalances): fine. It is
+  infeasible at 25, so a full-universe run would need a different solver.
 - *New, from Figure 1.1:* subsets can now draw **near-collinear pairs** (two banks at 0.8–0.85
   correlation). Expect unstable MV/MSR weights between them; check turnover.
 
