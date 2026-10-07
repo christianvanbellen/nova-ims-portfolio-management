@@ -10,52 +10,85 @@ from __future__ import annotations
 # 1. Investable universe (definitions SS1)
 # --------------------------------------------------------------------------- #
 
-#: The six assets strategies may allocate to. Order is the fixed asset order used
-#: in every table and figure in the report.
-UNIVERSE: dict[str, dict[str, str]] = {
-    "GC=F": {
-        "name": "Gold, COMEX continuous front-month",
-        "asset_class": "Commodity",
-        "instrument": "Futures proxy",
-        "proxy_for": "Spot gold exposure; investable counterpart GLD or IAU",
-    },
-    "GOVT": {
-        "name": "iShares US Treasury Bond ETF",
-        "asset_class": "Government bonds",
-        "instrument": "ETF",
+#: Sector groups, in the fixed order used in every table and figure. Each takes
+#: one slot of the validated categorical palette, in its validated order: with
+#: more assets than the palette has slots, colour encodes the *sector*, and
+#: figures that need per-asset identity use small multiples and direct labels.
+SECTORS: dict[str, dict[str, str]] = {
+    "Technology": {"color": "#2a78d6"},                 # blue
+    "Healthcare": {"color": "#eb6834"},                 # orange
+    "Financials": {"color": "#1baf7a"},                 # aqua
+    "Consumer staples": {"color": "#eda100"},           # yellow
+    "Real assets & defensive": {"color": "#e87ba4"},    # magenta
+}
+SECTOR_ORDER: list[str] = list(SECTORS)
+
+
+def _stock(name: str, sector: str, industry: str, cost_bp: float = 3.0) -> dict:
+    return {
+        "name": name,
+        "sector": sector,
+        "asset_class": f"Equity -- {industry}",
+        "instrument": "Common stock",
         "proxy_for": None,
-    },
-    "TSM": {
-        "name": "Taiwan Semiconductor Manufacturing",
-        "asset_class": "Equity -- semiconductors",
-        "instrument": "ADR",
+        "cost_bp": cost_bp,
+    }
+
+
+def _fund(name: str, asset_class: str, instrument: str, cost_bp: float) -> dict:
+    return {
+        "name": name,
+        "sector": "Real assets & defensive",
+        "asset_class": asset_class,
+        "instrument": instrument,
         "proxy_for": None,
-    },
-    "VNQ": {
-        "name": "Vanguard Real Estate Index Fund ETF",
-        "asset_class": "Real estate / REITs",
-        "instrument": "ETF",
-        "proxy_for": None,
-    },
-    "RNMBY": {
-        "name": "Rheinmetall AG",
-        "asset_class": "Equity -- defence",
-        "instrument": "ADR",
-        "proxy_for": None,
-    },
-    "BTC-USD": {
-        "name": "Bitcoin",
-        "asset_class": "Cryptoasset",
-        "instrument": "Spot proxy",
-        "proxy_for": "Spot bitcoin; not investable via a US product before the Jan-2024 spot ETFs",
-    },
+        "cost_bp": cost_bp,
+    }
+
+
+#: The assets strategies may allocate to, grouped by sector. Dict order is the
+#: fixed asset order. Each entry is self-contained -- sector, labels and one-way
+#: cost -- so adding or swapping an asset is a one-entry edit. `proxy_for` is
+#: set when a series is not itself a holding (a futures splice, a spot rate);
+#: anything carrying it is labelled as a proxy wherever it appears.
+UNIVERSE: dict[str, dict] = {
+    "AAPL": _stock("Apple", "Technology", "technology hardware"),
+    "MSFT": _stock("Microsoft", "Technology", "software"),
+    "ORCL": _stock("Oracle", "Technology", "software"),
+    "AMZN": _stock("Amazon.com", "Technology", "internet retail and cloud"),
+    "INTC": _stock("Intel", "Technology", "semiconductors"),
+    "JNJ": _stock("Johnson & Johnson", "Healthcare", "pharmaceuticals"),
+    "PFE": _stock("Pfizer", "Healthcare", "pharmaceuticals"),
+    "MRK": _stock("Merck & Co.", "Healthcare", "pharmaceuticals"),
+    "UNH": _stock("UnitedHealth Group", "Healthcare", "managed care"),
+    "ABT": _stock("Abbott Laboratories", "Healthcare", "medical devices"),
+    "JPM": _stock("JPMorgan Chase", "Financials", "banks"),
+    "BAC": _stock("Bank of America", "Financials", "banks"),
+    "WFC": _stock("Wells Fargo", "Financials", "banks"),
+    "GS": _stock("Goldman Sachs", "Financials", "investment banking"),
+    "AXP": _stock("American Express", "Financials", "consumer finance"),
+    "PG": _stock("Procter & Gamble", "Consumer staples", "household products"),
+    "KO": _stock("Coca-Cola", "Consumer staples", "beverages"),
+    "PEP": _stock("PepsiCo", "Consumer staples", "beverages"),
+    "WMT": _stock("Walmart", "Consumer staples", "food and staples retail"),
+    "CL": _stock("Colgate-Palmolive", "Consumer staples", "household products"),
+    "GLD": _fund("SPDR Gold Shares", "Commodity -- gold", "ETF (physically backed trust)", 2.0),
+    "SLV": _fund("iShares Silver Trust", "Commodity -- silver", "ETF (physically backed trust)", 3.0),
+    "TLT": _fund("iShares 20+ Year Treasury Bond ETF", "Government bonds -- long duration", "ETF", 2.0),
+    "VNQ": _fund("Vanguard Real Estate Index Fund ETF", "Real estate / REITs", "ETF", 2.0),
+    "XOM": _stock("Exxon Mobil", "Real assets & defensive", "energy"),
 }
 
-#: Fixed asset order for every table and figure.
+#: Fixed asset order for every table and figure: sector by sector.
 ASSET_ORDER: list[str] = list(UNIVERSE)
 
+#: Asset tickers per sector, in the fixed order.
+SECTOR_ASSETS: dict[str, list[str]] = {
+    sector: [t for t in ASSET_ORDER if UNIVERSE[t]["sector"] == sector] for sector in SECTOR_ORDER
+}
+
 #: The single share the stylised-facts section analyses (definitions SS1).
-STYLISED_FACTS_TICKER = "TSM"
+STYLISED_FACTS_TICKER = "JPM"
 
 # --------------------------------------------------------------------------- #
 # 2. Benchmarks and risk-free (definitions SS2)
@@ -92,8 +125,8 @@ ALL_TICKERS: list[str] = ASSET_ORDER + list(BENCHMARKS) + [RISK_FREE_TICKER]
 # --------------------------------------------------------------------------- #
 
 PANEL_START = "2011-10-01"  # 15 years of span, per the brief
-FULL_PANEL_START = "2014-09-17"  # first date all six assets have data
 FFILL_LIMIT = 3  # interior gaps longer than this are reported, not patched
+EXTREME_MOVE = 0.15  # |daily log return| screened for missed corporate actions
 MIN_YEARS_REQUIRED = 15  # the brief's minimum history
 
 # --------------------------------------------------------------------------- #
@@ -111,15 +144,8 @@ PERIODS_PER_YEAR: dict[str, int] = {"daily": 252, "weekly": 52, "monthly": 12}
 # 5. Transaction costs (definitions SS6)
 # --------------------------------------------------------------------------- #
 
-#: One-way cost in basis points of traded notional.
-COSTS_BP: dict[str, float] = {
-    "GC=F": 2.0,
-    "GOVT": 2.0,
-    "VNQ": 3.0,
-    "TSM": 5.0,
-    "BTC-USD": 25.0,
-    "RNMBY": 30.0,
-}
+#: One-way cost in basis points of traded notional, read off the universe.
+COSTS_BP: dict[str, float] = {t: info["cost_bp"] for t, info in UNIVERSE.items()}
 COST_STRESS_MULTIPLIER = 2.0  # the robustness re-run (workstream F)
 
 # --------------------------------------------------------------------------- #
@@ -145,16 +171,8 @@ STRATEGY_ORDER: list[str] = ["EW", "GMV", "MV", "MSR", "IV", "ERC", "MDP", "MDC"
 # 7. Plotting (plan SS1, "Figures")
 # --------------------------------------------------------------------------- #
 
-#: One fixed colour per asset, used identically in every figure in the report.
-#: Slots 1-6 of a validated categorical palette, in its validated order.
-ASSET_COLORS: dict[str, str] = {
-    "GC=F": "#2a78d6",    # blue
-    "GOVT": "#eb6834",    # orange
-    "TSM": "#1baf7a",     # aqua
-    "VNQ": "#eda100",     # yellow
-    "RNMBY": "#e87ba4",   # magenta
-    "BTC-USD": "#008300", # green
-}
+#: One fixed colour per asset: its sector's colour (see `SECTORS`).
+ASSET_COLORS: dict[str, str] = {t: SECTORS[info["sector"]]["color"] for t, info in UNIVERSE.items()}
 
 #: Benchmarks read as a reference line, not a competitor: neutral grey, dashed.
 BENCHMARK_COLOR = "#52514e"

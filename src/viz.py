@@ -76,28 +76,45 @@ def correlation_heatmap(
     returns: pd.DataFrame,
     tickers: list[str],
     ax: plt.Axes | None = None,
+    groups: list[list[str]] | None = None,
 ) -> tuple[plt.Axes, pd.DataFrame]:
-    """Correlation heatmap on a diverging scale fixed to -1..+1, values in cells."""
+    """Correlation heatmap on a diverging scale fixed to -1..+1, values in cells.
+
+    `groups` (e.g. sectors) draws a separator after each block, so block
+    structure reads at a glance. Cell text shrinks with the matrix so a large
+    universe stays legible.
+    """
     corr = returns[tickers].corr()
+    n = len(tickers)
     if ax is None:
-        _, ax = plt.subplots(figsize=(6.4, 5.4))
+        side = max(6.4, 0.42 * n)
+        _, ax = plt.subplots(figsize=(side, side * 0.86))
 
     image = ax.imshow(
         corr.to_numpy(), cmap=CORR_CMAP, norm=TwoSlopeNorm(vmin=-1.0, vcenter=0.0, vmax=1.0)
     )
-    ax.set_xticks(range(len(tickers)), tickers, rotation=45, ha="right")
-    ax.set_yticks(range(len(tickers)), tickers)
+    ax.set_xticks(range(n), tickers, rotation=45 if n <= 10 else 90, ha="right" if n <= 10 else "center")
+    ax.set_yticks(range(n), tickers)
     ax.grid(False)
     ax.tick_params(length=0)
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    for i in range(len(tickers)):
-        for j in range(len(tickers)):
+    fontsize = 8 if n <= 10 else 5.5
+    for i in range(n):
+        for j in range(n):
             value = corr.iat[i, j]
             # Ink stays readable against the deepest ends of the ramp.
             ink = "#ffffff" if abs(value) > 0.65 else cfg.INK_PRIMARY
-            ax.text(j, i, f"{value:.2f}", ha="center", va="center", fontsize=8, color=ink)
+            text = f"{value:.2f}" if n <= 10 else f"{value:.2f}".replace("0.", ".", 1)
+            ax.text(j, i, text, ha="center", va="center", fontsize=fontsize, color=ink)
+
+    if groups:
+        edge = -0.5
+        for block in groups[:-1]:
+            edge += sum(t in tickers for t in block)
+            ax.axhline(edge, color=cfg.SURFACE, linewidth=2.5)
+            ax.axvline(edge, color=cfg.SURFACE, linewidth=2.5)
 
     bar = ax.figure.colorbar(image, ax=ax, shrink=0.78, ticks=[-1, -0.5, 0, 0.5, 1])
     bar.outline.set_visible(False)
@@ -119,52 +136,56 @@ def _spread(positions, min_gap: float):
 # A8 -- Figure 1.2, cumulative growth of $1
 # --------------------------------------------------------------------------- #
 
-def growth_of_one(
+def growth_small_multiples(
     prices: pd.DataFrame,
-    tickers: list[str],
-    benchmarks: tuple[str, ...] = (cfg.PERFORMANCE_BENCHMARK,),
-    ax: plt.Axes | None = None,
-) -> tuple[plt.Axes, pd.DataFrame]:
-    """Growth of $1 on a log y-axis, every series rebased at the first common date.
+    groups: dict[str, list[str]],
+    benchmark: str = cfg.PERFORMANCE_BENCHMARK,
+    panel_size: tuple[float, float] = (1.9, 1.35),
+) -> tuple[plt.Figure, pd.DataFrame]:
+    """Growth of $1, one small panel per asset, one row per group (sector).
 
-    Lines are labelled at their right-hand end as well as in the legend, so
-    identity never rests on colour alone.
+    Every series is rebased at the first date all of them have a price. Panels
+    share one log y-axis, so heights compare across the whole grid; the
+    benchmark is repeated in every panel as a dashed grey reference. Each
+    panel's title names its asset and its terminal value, so identity never
+    rests on colour, which here encodes the group.
     """
-    columns = list(tickers) + [b for b in benchmarks if b not in tickers]
-    series = prices[columns].dropna()
+    tickers = [t for block in groups.values() for t in block]
+    series = prices[tickers + [benchmark]].dropna()
     wealth = series / series.iloc[0]
 
-    if ax is None:
-        _, ax = plt.subplots(figsize=(8.0, 4.6))
+    n_rows, n_cols = len(groups), max(len(block) for block in groups.values())
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(panel_size[0] * n_cols, panel_size[1] * n_rows),
+        sharex=True, sharey=True, squeeze=False,
+    )
+    for row, (group, block) in enumerate(groups.items()):
+        for col in range(n_cols):
+            ax = axes[row, col]
+            if col >= len(block):
+                ax.set_visible(False)
+                continue
+            ticker = block[col]
+            ax.plot(wealth.index, wealth[benchmark], zorder=2, **{**cfg.BENCHMARK_STYLE, "linewidth": 1.0})
+            ax.plot(wealth.index, wealth[ticker], color=color_for(ticker), linewidth=1.2, zorder=3)
+            ax.axhline(1.0, color=cfg.GRID_COLOR, linewidth=0.8, zorder=1)
+            ax.set_title(f"{ticker}  {wealth[ticker].iloc[-1]:.1f}×", fontsize=8.5, pad=3)
+            ax.tick_params(labelsize=7)
+            if col == 0:
+                ax.set_ylabel(group, fontsize=8, color=cfg.INK_PRIMARY)
 
-    for ticker in columns:
-        is_benchmark = ticker in benchmarks
-        style = dict(cfg.BENCHMARK_STYLE) if is_benchmark else {"color": color_for(ticker)}
-        label = f"{ticker} (benchmark)" if is_benchmark else ticker
-        ax.plot(wealth.index, wealth[ticker], label=label, zorder=2 if is_benchmark else 3, **style)
-
-    # Direct end labels, nudged apart so close finishers stay legible.
-    ends = wealth.iloc[-1].sort_values()
-    offsets = _spread(np.log10(ends.to_numpy()), min_gap=0.055)
-    for ticker, offset in zip(ends.index, offsets):
-        ax.annotate(
-            ticker,
-            xy=(wealth.index[-1], 10.0**offset),
-            xytext=(5, 0),
-            textcoords="offset points",
-            va="center",
-            fontsize=8,
-            color=cfg.INK_SECONDARY if ticker in benchmarks else color_for(ticker),
-        )
-
-    ax.set_yscale("log")
-    ax.set_ylabel("Growth of $1 (log scale)")
-    ax.set_xlabel("Year")
-    ax.axhline(1.0, color=cfg.GRID_COLOR, linewidth=1.0, zorder=1)
-    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda v, _: f"${v:,.0f}" if v >= 1 else f"${v:,.2f}"))
-    ax.margins(x=0.06)
-    ax.legend(loc="upper left", ncols=4)
-    return ax, wealth
+    axes[0, 0].set_yscale("log")
+    axes[0, 0].yaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda v, _: f"${v:g}"))
+    axes[0, 0].xaxis.set_major_locator(mpl.dates.YearLocator(5))
+    axes[0, 0].xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y"))
+    fig.legend(
+        handles=[mpl.lines.Line2D([], [], **cfg.BENCHMARK_STYLE)],
+        labels=[f"{benchmark} (benchmark), in every panel"],
+        loc="upper right", bbox_to_anchor=(1.0, 1.02),
+    )
+    fig.supylabel("Growth of $1 (log scale)", fontsize=9, color=cfg.INK_SECONDARY, x=-0.01)
+    fig.tight_layout(h_pad=0.6, w_pad=0.4)
+    return fig, wealth
 
 
 # --------------------------------------------------------------------------- #

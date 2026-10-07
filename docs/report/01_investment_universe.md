@@ -1,129 +1,139 @@
 # 2. Data
 
-*Draft of report section 2. Target ~1.5 pages alongside Tables 1.1–1.3 and Figures 1.1–1.2. Every
-number is produced by [`notebooks/01_investment_universe.ipynb`](../../notebooks/01_investment_universe.ipynb).*
+*Draft of report section 2. Target ~1.5 pages alongside Tables 1.1–1.3 and Figures 1.1–1.2, with
+Tables A1.1–A1.2 in the appendix. Every number is produced by
+[`notebooks/01_investment_universe.ipynb`](../../notebooks/01_investment_universe.ipynb).*
 
 ---
 
 ## 2.1 Source and adjustment
 
 All prices come from **Yahoo Finance** via the `yfinance` package, retrieved on **7 October 2026**.
-Nothing is cached: each notebook re-downloads what it needs, so the extraction date — quoted once here
-and applying throughout — fully determines every number in this report.
+Nothing is cached: each notebook re-downloads what it needs. The extraction date, quoted once here and
+applying throughout, therefore fully determines every number in this report.
 
-Prices are **adjusted closes**, restated for subsequent splits and distributions — equivalent to
-reinvesting each dividend on its ex-date, so every series is a total-return series. That one switch is
-the whole of our dividend treatment, and Table 1.3 measures what it is worth by setting each adjusted
-series against its price-only counterpart on the same dates.
+Prices are **adjusted closes**, restated for subsequent splits, spin-offs and cash distributions. This
+is equivalent to reinvesting each dividend on its ex-date, so every series is a total-return series.
+That one switch is the whole of our dividend treatment. Table 1.3 measures what it is worth by setting
+each adjusted series against its price-only counterpart on the same dates.
 
-It is material for four of the six. **`GOVT`'s entire return is income**: 1.0% a year in total, −0.9%
-on price alone, so an unadjusted series would show a Treasury allocation losing money. Distributions
-supply **4.2 of `VNQ`'s 8.4 points** a year, and add 3.3 and 2.3 points to `TSM` and `RNMBY`. A
-strategy scored on unadjusted prices would therefore be penalised for holding exactly the income
-assets. `GC=F` and `BTC-USD` pay nothing, and adjustment leaves them unchanged.
+Distributions are material almost everywhere. Every stock except `AMZN` pays a regular dividend, worth
+**1.5 to 4.4 points a year**. For the defensive assets, dividends are much of the return: about half of
+`VNQ`'s 8.4% a year, over 40% of `XOM`'s and about a third of the consumer-staples names'. **`TLT`'s
+entire return is income and more.** The long Treasury fund lost 3.1% a year on price alone, and
+distributions bring it back only to −0.3%. A strategy scored on unadjusted prices would be penalised
+for holding exactly the income assets. `GLD`, `SLV` and `AMZN` pay nothing, and adjustment leaves them
+unchanged.
 
-The same factors would absorb splits and ADR ratio changes, but over the panel there are **none**
-among the six assets (Table 1.3), so corporate actions other than cash distributions play no part.
+**Corporate actions.** The panel contains nine split-type adjustments (Table A1.2). Six are ordinary
+splits: `AAPL` (twice), `AMZN`, `WMT`, `KO` and `CL`. Three are **spin-offs**: Abbott's of AbbVie
+(2013), Pfizer's Upjohn business into Viatris (2020), and Merck's of Organon (2021). Yahoo records
+each spin-off as a fractional split ratio. The adjusted series continues as if the spun-off shares were
+sold on the ex-date and the proceeds reinvested in the parent. This is the standard total-return
+convention, and the only way to keep a single-ticker history continuous. We checked that it worked: on
+every event date the adjusted return is an ordinary move of about 2%, not the double-digit drop a
+missed adjustment would leave.
 
-The adjustment has two known gaps. Yahoo reinvests the **gross** dividend, whereas a US holder of the
-ADRs receives it net of foreign withholding tax — 21% in Taiwan for `TSM`, 26.375% in Germany for
-`RNMBY` — and of depositary fees; at the yields above this overstates each by roughly 0.6–0.7 points a
-year. And `GC=F` is not adjusted at all (below). We use one vendor and one adjustment method, with no
-second source to cross-check against (section 6).
+As a further screen, we listed every daily move beyond ±15% (Table A1.1). There are 32 such
+asset-sessions. Fifteen fall on three days of the March 2020 crash, when up to seven assets crossed
+the threshold at once. The rest are single-name news: earnings and guidance shocks at `INTC` and
+`UNH`, `ORCL`'s jump in September 2025, and a 34% one-day fall in `SLV` in January 2026 at the top of
+a rally. None falls on a corporate-action date, so none is an adjustment artefact. All stay in the
+data.
+
+One gap remains: Yahoo reinvests the **gross** dividend, with no allowance for tax. This applies
+equally to every asset and to the `SPY` benchmark, so it shifts levels but not comparisons. We use one
+vendor and one adjustment method, with no second source to cross-check against (section 6).
 
 ## 2.2 Universe, currencies and proxies
 
-The six assets in Table 1.1 span six distinct return drivers: a commodity, government bonds, a
-semiconductor equity, listed real estate, a defence equity and a cryptoasset. Strategies allocate only
-to these six.
+The universe has **25 assets in five sector groups of five** (Table 1.1). Four groups are equities:
+technology, healthcare, financials and consumer staples. The fifth, *real assets and defensive*, holds
+gold (`GLD`), silver (`SLV`), long-duration US Treasuries (`TLT`), US real estate (`VNQ`) and an energy
+major (`XOM`). The groups are our own, not a GICS classification: `AMZN` sits in technology, and `XOM`
+is a common stock grouped with the four funds. Strategies allocate only to these 25.
 
-All are **quoted in USD on US venues**, so the pipeline performs no currency conversion. Currency risk
-has not disappeared, however — it sits inside the series. `TSM` is an ADR over a TWD-denominated share
-and `RNMBY` over a EUR-denominated one, so their USD returns combine the local equity move with the
-exchange-rate move, and we do not separate the two. Part of what a defence allocation buys here is
-short EUR/USD.
+All 25 are **US-listed and quoted in USD**, so the pipeline performs no currency conversion and no
+return carries a foreign-exchange layer. Foreign-currency exposure enters only indirectly, through the
+companies' overseas earnings, and is part of what an investor in them owns.
 
-**Two of the six are proxies, not holdings.** `GC=F` is the COMEX continuous front-month gold future: a
-splice of successive contracts with no roll adjustment, so the price jump at each roll is booked as a
-return and the collateral yield a futures holder earns is absent. It tracks spot gold closely but is
-not a holding anyone can buy and keep. The investable counterparts are `GLD` or `IAU`, whose returns would be marginally lower
-after fees. `BTC-USD` is a spot rate; before the US spot ETFs launched in **January 2024** no regulated
-US vehicle tracked it closely. For roughly three-quarters of the sample, the bitcoin series is therefore
-**not a return a US committee could have earned**, and pre-2024 bitcoin allocations should be read as an
-upper bound on what was achievable.
+**No asset is a proxy.** Every series is a security an investor could have bought and held throughout
+the sample. In particular, `GLD` and `SLV` are physically backed trusts: they hold the metal, so their
+returns carry the fund's fee but no futures roll.
 
-The **S&P 500** sits outside the universe and no strategy may allocate to it, and it shows the
+The **S&P 500** sits outside the universe, and no strategy may allocate to it. It also illustrates the
 index/tracker distinction the brief asks for. **`^GSPC` is the index itself: a price index, not
-investable, and paying nothing** — its adjusted and unadjusted returns are identical. **`SPY` is an ETF
-that tracks it**: investable, and through the adjustment a total-return series. Over the panel the gap
-is **2.0 points a year** (15.9% against 14.0%, Table 1.3) — the index's dividend yield less SPY's
-expense ratio. Using `^GSPC` as the benchmark would understate it by that much, so `^GSPC` is quoted
-only when describing "the market"; `SPY` is used in every performance comparison and also defines our
-trading calendar. The brief's own benchmark for the
-hundred experiments is the **equally weighted portfolio** of the six assets. We report both: they answer
-different questions, namely whether an optimiser beats naive diversification, and whether the exercise
-beats simply owning the index.
+investable, and paying nothing**, so its adjusted and unadjusted returns are identical. **`SPY` is an
+ETF that tracks it**: investable, and through the adjustment a total-return series. Over the panel the
+gap is **2.0 points a year** (15.9% against 14.0%, Table 1.3), which is the index's dividend yield less
+SPY's expense ratio. Using `^GSPC` as the benchmark would understate it by that much. `^GSPC` is
+therefore quoted only when describing "the market". `SPY` is used in every performance comparison and
+also defines our trading calendar.
 
-## 2.3 Calendar, alignment and the 15-year question
+The brief's own benchmark for the hundred experiments is the **equally weighted portfolio** of each
+experiment's assets. We report both benchmarks because they answer different questions: whether an
+optimiser beats naive diversification, and whether the exercise beats simply owning the index.
 
-The panel runs **3 October 2011 to 6 October 2026** — **3,774 NYSE sessions**, a span of **15.0 years**,
+## 2.3 Calendar, alignment and the 15-year requirement
+
+The panel runs **3 October 2011 to 6 October 2026**: **3,774 NYSE sessions**, a span of **15.0 years**,
 satisfying the brief's minimum.
 
-The six assets do not share that history. Only `GC=F`, `TSM` and `VNQ` reach back fifteen years; `GOVT`
-begins February 2012, `RNMBY` November 2012, and `BTC-USD` not until **17 September 2014**. **The
-intersection in which all six have data is 12.1 years, not 15.** Both figures are stated wherever
-either is used: single-asset statistics use that asset's full history, while anything needing the
-complete matrix — Figure 1.1, the rebasing in Figure 1.2 — starts in September 2014 and says so.
+**Every asset is present for the whole panel.** The latest-listed, `SLV`, has data from April 2006,
+and most of the stocks reach back to the 1970s or earlier. The 15-year requirement therefore binds on
+the panel, not on any asset, and the intersection in which all 25 have data is the full 15.0 years.
+The universe would have allowed a start in May 2006, bringing the 2008 crisis into the sample. We kept
+the 15-year panel. As a result, the sample's stress periods are the March 2020 crash and the 2022
+rate shock, and not a banking crisis. This matters for a universe with five banks and financials in
+it (section 6).
 
-We did not pad the short series. Assets enter on their own first observation; pre-entry cells stay
-missing, never zero- or back-filled. The sampler (section 4) draws each window only from dates where
-every asset *in that drawn subset* has data, so short histories cost us candidate windows rather than
-forcing an invented price. One consequence needs flagging: windows containing bitcoin can only come
-from the back half of the sample, so BTC effects and recent-period effects are partially confounded —
-section 6 tests this.
-
-**The calendar.** `BTC-USD` trades 365 days a year, the others roughly 252. We define the calendar as
-the dates `SPY` trades and reindex everything onto it, discarding **1,373 bitcoin observations** on
-weekends and holidays. The bias runs against caution: bitcoin's weekend moves are large, so dropping
-them **understates its measured volatility**, which leads every volatility-sensitive strategy to hold
-*more* of it than full information would justify. Aggregating weekends into Monday would avoid this but
-inject artificially fat-tailed Mondays into the stylised facts in section 3.
-
-Interior gaps are forward-filled up to three sessions, longer ones reported rather than patched. In
-practice this was near-trivial — **three `GC=F` sessions** filled, no gap anywhere exceeding the limit.
-Table 1.2 records every fill; there are no silent ones.
+We define the calendar as the dates `SPY` trades and reindex every series onto it. Every asset here
+trades on NYSE or Nasdaq sessions, so no observation fell off the calendar. Interior gaps would be
+forward-filled up to three sessions, with longer gaps reported rather than patched. In practice there
+were **no missing sessions in any series** (Table 1.2).
 
 ## 2.4 Data quality
 
-Coverage is essentially complete (Table 1.2). The informative column is the share of **zero-return
-days**, which tests whether a price is *fresh* rather than whether it exists: an unchanged close is
-either a genuinely flat session or a quote that was not updated, and thin trading produces the second
-kind in volume.
+Coverage is complete (Table 1.2). The informative column is the share of **zero-return days**, which
+tests whether a price is *fresh* rather than whether it exists. An unchanged close is either a
+genuinely flat session or a quote that was not updated, and thin trading produces the second kind.
+Stale prices bias measured volatility down and correlations toward zero. An optimiser then sees such
+an asset as safer and more diversifying than it is.
 
-**`RNMBY` is the problem case.** Nearly **20% of its sessions show no price change**, against 0.03–1.0%
-for the other five, on a median of **1,500 shares a day** over its full history. The bias has a definite direction: stale
-prices suppress measured variance and pull correlations toward zero, so `RNMBY` presents to an optimiser
-as a low-risk, well-diversifying asset when it is neither. IV directly, and GMV and ERC through the
-covariance matrix, will over-weight it. Section 6 re-runs the comparison without it. Its liquidity has
-improved sharply since 2022, so that full-history median overstates how thin it is today and the bias
-is concentrated in the early part of the sample.
-
-`GOVT`'s 6.4% is not a data fault — a short-duration Treasury ETF genuinely closes unchanged on quiet
-days, consistent with its low volatility rather than evidence against it.
+**No asset shows the problem.** Zero-return days range from **0.08% (`GS`) to 1.91% (`SLV`)**, the level
+of liquid instruments that occasionally close unchanged. Liquidity is deep throughout. The thinnest
+asset, `CL`, trades a median **$220 million a day** over the panel, and `AAPL` trades $7.9 billion
+(Table 1.1). Every asset could absorb a fund's rebalancing without moving its price.
 
 ## 2.5 What the data shows before any strategy
 
-Figure 1.1 gives daily log-return correlations over the common period. The six are **genuinely weakly
-correlated**: the mean pairwise correlation is about **0.1**, the strongest pair (`TSM`–`VNQ`) only
-**0.33**, and `GOVT` is mildly negative against both `TSM` and the S&P 500. This is a precondition for
-the comparison that follows — the correlation-aware strategies (GMV, ERC, MDP, MDC) can only separate
-from the correlation-blind ones (EW, IV) when the matrix has structure to exploit. Here it does; under
-uniformly high correlation all eight would converge.
+Figure 1.1 gives daily log-return correlations over the panel, with assets grouped by sector. The mean
+pairwise correlation is **0.28**, but the average hides **strong sector structure**. Within a sector,
+names move together: the **financials correlate at 0.75** among themselves (`JPM`–`BAC` 0.85, the
+highest pair), consumer staples at 0.55, and technology and healthcare around 0.4. Across sectors the
+mean falls to 0.25. A single market factor explains about a third of total variance.
 
-Figure 1.2 shows growth of $1 on a log scale. Dispersion is extreme: `BTC-USD` returns roughly **187×**
-and `TSM` **32×**, against **1.1×** for `GOVT` and **4.8×** for the S&P 500. The log axis is therefore
-not cosmetic — linearly, bitcoin compresses the other five onto the x-axis. More importantly, **one
-asset dominates the sample so heavily that measured performance is largely a question of how much
-bitcoin a strategy happened to hold.** That is exactly why the hundred-window, four-asset-subset design
-is the right one: it stops a single lucky allocation over a single period from deciding the
-recommendation. Section 6 separates experiments that include bitcoin from those that do not.
+**The diversification sits in one block.** `TLT` is negatively correlated with 22 of the other 24
+assets. Its correlation is most negative with the banks (about −0.35) and is −0.23 with the S&P 500.
+`GLD` is close to zero against everything except `SLV` (0.80). `VNQ` and `XOM`, by contrast, behave
+like equities. Their correlations with the S&P 500 are 0.71 and 0.52. This structure is what the
+correlation-aware strategies (GMV, ERC, MDP, MDC) can exploit and the correlation-blind ones (EW, IV)
+cannot. How much it matters depends on the drawn subset. Four stocks from four sectors leave little to
+exploit. Two banks plus `TLT` leave a great deal, and also hand the optimiser a near-collinear pair
+whose weights it estimates poorly.
+
+Figure 1.2 shows growth of $1 for each asset, as small multiples on a shared log scale, with the S&P 500
+in every panel for reference. Terminal wealth ranges from **0.95× (`TLT`) to 29.8× (`AAPL`)**, against
+**9.2×** for `SPY`. Seven assets beat the index: `AAPL`, `MSFT`, `AMZN`, `JPM`, `GS`, `BAC` and `UNH`.
+Unlike in a universe with one runaway asset, no single holding decides the outcome: the best asset
+ends at about five times the median one.
+
+Two features of the figure carry into the limitations. **First, the list is chosen with hindsight.**
+Twenty of the 25 are today's best-known US large caps, and the three best performers are among the
+largest companies in the world now. A universe chosen this way is tilted toward winners before any
+strategy runs. That flatters every strategy that holds them, and EW and the benchmark alike, so it
+biases absolute returns up more than it distorts the ranking. `INTC`, below the index for most of the
+decade, shows the tilt is not complete. **Second, the safest-looking asset lost money.** `TLT` fell 48%
+from its August 2020 peak to October 2023 as rates rose. Low volatility and negative correlation make
+it the asset that risk-based strategies favour most, and evaluation windows covering 2022 will show
+what that cost.

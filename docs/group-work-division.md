@@ -58,16 +58,16 @@ by output. Status is taken from the definitions changelog (§8).
 
 | Draft part | Plan workstream / tasks | Notebook | Report section | Repo status |
 | --- | --- | --- | --- | --- |
-| 1a — selection and download | A1–A5, A9 (selection prose) | `01_investment_universe` | 2. Data | **Done** (2026-10-01) |
-| 1b — returns and data treatment | A5b, A6, A9 (treatment prose) | `01_investment_universe` | 2. Data | **Done** (Table 1.3 added 2026-10-07) |
-| 1c — stylised facts | B1–B14 | `02_stylised_facts` | 3. Stylised facts | **Done** (2026-10-05) |
-| 2 — strategies | D1–D12 | `04_strategies` | 4. Methods | **Done** (2026-10-07) |
-| 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | **Done** (2026-10-07) |
-| *Not in the draft* | E1–E10 — experiments and performance | `05_experiments`, `06_performance` | 5. Results | **Done** (2026-10-07) |
+| 1a — selection and download | A1–A5, A9 (selection prose) | `01_investment_universe` | 2. Data | **Done** on the 25-asset universe (2026-10-07) |
+| 1b — returns and data treatment | A5b, A6, A9 (treatment prose) | `01_investment_universe` | 2. Data | **Done** on the 25-asset universe (2026-10-07) |
+| 1c — stylised facts | B1–B14 | `02_stylised_facts` | 3. Stylised facts | **To re-run** on `JPM` |
+| 2 — strategies | D1–D12 | `04_strategies` | 4. Methods | **To re-run** on the 25-asset universe |
+| 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | **To re-run**; subset size to revisit |
+| *Not in the draft* | E1–E10 — experiments and performance | `05_experiments`, `06_performance` | 5. Results | **To re-run** |
 | *Not in the draft* | F1–F6 — robustness and limitations | `07_robustness` | 6. Robustness | Not started |
 | *Not in the draft* | G1–G6 — report, recommendation, submission | — | 1, 7, appendices | Not started |
 
-Draft prose for Parts 1a–1c already exists in [`report/01_investment_universe.md`](report/01_investment_universe.md)
+Draft prose for Part 1a–1b is current; Part 1c's predates the universe change. Both are in [`report/01_investment_universe.md`](report/01_investment_universe.md)
 and [`report/02_stylised_facts.md`](report/02_stylised_facts.md).
 
 ---
@@ -104,25 +104,25 @@ the critical path: plan §9 has E as the long pole.
 
 | # | Topic | Draft says | Plan decided | Where |
 | --- | --- | --- | --- | --- |
-| C-1 | Universe | "a few assets, shares, stocks, etf, commodities" | Six assets: `GC=F`, `GOVT`, `TSM`, `VNQ`, `RNMBY`, `BTC-USD`. Includes a government bond ETF, a REIT ETF and a **cryptoasset**, none of which the draft lists | Definitions §1 |
-| C-2 | 15-year minimum | "min 15 years until today" | Panel spans 15 years (from 2011-10-01), but the **six-asset intersection is only 12.0 years** (from 2014-09-17, set by `BTC-USD`); `GOVT` and `RNMBY` are also under 15y. Handled with staggered entry and disclosed | Definitions §3–4 |
-| C-3 | Benchmark / index vs investable | Restates the brief's requirement | S&P 500 held outside the universe: `^GSPC` (non-investable index) vs `SPY` (investable tracker). `GC=F` and `BTC-USD` labelled as proxies, with `GLD`/`IAU` and the 2024 spot ETFs as investable counterparts | Definitions §1–2 |
+| C-1 | Universe | "a few assets, shares, stocks, etf, commodities" | 25 assets in five sector groups of five: technology, healthcare, financials and consumer-staples stocks, plus gold, silver, long Treasuries, real estate and an energy stock. Rebuilt on the professor's advice to use more assets | Definitions §1 |
+| C-2 | 15-year minimum | "min 15 years until today" | Panel spans 15.0 years (from 2011-10-01), and every asset has data throughout: the shortest history is 20.4 years. The panel could start in 2006 but was kept at 15 years | Definitions §3–4 |
+| C-3 | Benchmark / index vs investable | Restates the brief's requirement | S&P 500 held outside the universe: `^GSPC` (non-investable index) vs `SPY` (investable tracker). No asset in the universe is a proxy | Definitions §1–2 |
 | C-4 | Weekly/monthly construction | "period-end prices **or** summing daily log returns" | **Summing daily log returns**. Weeks end on Friday, months on the last trading day; stylised facts use complete periods only | Definitions §5, changelog 2026-10-05 |
-| C-5 | Trading calendar | Restates the requirement | NYSE calendar from `SPY`. `BTC-USD` weekend observations dropped, not aggregated (disclosed as understating its risk) | Definitions §4 |
-| C-6 | Stylised-facts asset | "Select one asset" | `TSM` | Definitions §1 |
+| C-5 | Trading calendar | Restates the requirement | NYSE calendar from `SPY`. Off-calendar observations would be dropped and counted; none in this universe | Definitions §4 |
+| C-6 | Stylised-facts asset | "Select one asset" | `JPM` | Definitions §1 |
 | C-7 | Markowitz parameter | "state the target return or risk-aversion parameter" | Risk aversion **λ = 3**, fixed before running, checked to give weights distinct from GMV and MSR | Plan D3, D12 |
 | C-8 | Constraints | "Specify … constraints" | Long-only, fully invested, no leverage, common to all eight strategies | Definitions §7 |
 | C-9 | Risk-free rate | Not mentioned | `^IRX`, 13-week T-bill | Definitions §5 |
 
 If the group wants a different answer on any of these, change [`project-definitions.md`](project-definitions.md)
-first. Parts 1a–1c are already built on these choices, so changing C-1, C-2, C-4 or C-6 means re-running
-notebooks 01–02 and redrafting report sections 2–3.
+first. Every notebook reads the universe from `src/config.py`, so changing C-1, C-2, C-4 or C-6 means
+re-running the notebooks and redrafting the report sections that quote their numbers.
 
 ### 3.3 Wording — draft and brief differ
 
 | # | Draft | Brief | Consequence |
 | --- | --- | --- | --- |
-| W-1 | 1c: "Select one **asset**" | "Select one **share**" | Picking gold, BTC or an ETF for the stylised facts would not meet the brief. `TSM` is a share, so the repo complies |
+| W-1 | 1c: "Select one **asset**" | "Select one **share**" | Picking an ETF such as `GLD` or `TLT` for the stylised facts would not meet the brief. `JPM` is a share, so the repo complies |
 | W-2 | 1c: "(and where appropriate, statistical tests)", in parentheses | "descriptive statistics and, where appropriate, statistical tests" | The parentheses read as optional. The plan treats the tests as core (JB, robust portmanteau, ARCH-LM, GARCH / GJR, residual tests), since each verdict in Table 2.5 needs one |
 | W-3 | Part 2 lists IV + ERC and MDP + MDC as one bullet each, so it reads as **six** strategies | Brief items (e) and (f) each name two portfolios | There are **eight** strategies. The plan implements all eight (D1–D8) |
 | W-4 | Part 2: "Specify objective and **shortcomings**/constraints" | "Specify each strategy's objective and constraints" | Here the draft asks for **more** than the plan. Table 3.2 (D10) has no shortcomings column. Proposed: add one. It costs little and feeds the trade-off discussion the brief asks for |
@@ -149,10 +149,11 @@ notebooks 01–02 and redrafting report sections 2–3.
    - Part 3b — robustness and limitations (F)
    - Part 4 — recommendation, report assembly and submission (G)
 2. **Assign owners**, by name, to each part, plus one document owner (G1).
-3. **Confirm or override** choices C-1 to C-9. In particular, the 12-year intersection (C-2) and the
-   open `RNMBY` → `LMT` question (definitions §1).
-4. **Treat Parts 1a–1c as done in this repo** and use the remaining time on Parts 2 onwards, unless
-   someone is building them independently. If so, say so now, so the two versions do not diverge.
+3. **Confirm or override** choices C-1 to C-9. In particular, the subset size for 25 assets
+   (definitions §7) and whether to extend the panel to include 2008 (C-2).
+4. **Treat Parts 1a–1b as done in this repo** and re-run Parts 1c onwards on the new universe, in
+   order, unless someone is building them independently. If so, say so now, so the two versions do not
+   diverge.
 5. **Adopt W-4.** Add a shortcomings column to Table 3.2.
 
 Once decided, record the outcome in the definitions changelog and update this page.

@@ -70,7 +70,7 @@ class Panel:
 
     @property
     def full_panel_start(self) -> pd.Timestamp:
-        """First date on which all six assets have a price."""
+        """First date on which every asset in the universe has a price."""
         return self.prices[self.assets].dropna().index[0]
 
 
@@ -105,7 +105,8 @@ def build_panel(
 
     tradables = cfg.ASSET_ORDER + list(cfg.BENCHMARKS)
 
-    # Observations that exist but fall outside NYSE sessions -- BTC's weekends.
+    # Observations that exist but fall outside NYSE sessions (weekend prints of
+    # anything that trades every day). Counted, then discarded by the reindex.
     dropped = {}
     for ticker in tradables:
         observed = close[ticker].dropna().index
@@ -171,10 +172,17 @@ def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.Dat
     history rather than the panel, because the question the table answers is
     whether the asset clears the brief's 15-year minimum. Measured this way the
     table reconciles with definitions SS3.
+
+    Liquidity is the exception: `Median $ volume` is measured over the *panel*,
+    because the question there is whether the asset is tradable in the period
+    the backtest uses, and dollars -- unlike shares -- compare across rows. It
+    is adjusted close times volume, so it slightly understates early-panel
+    turnover for assets that pay distributions.
     """
     tickers = tickers or panel.assets
     meta = {**cfg.UNIVERSE, **cfg.BENCHMARKS}
     asof = pd.Timestamp(panel.extraction_date)
+    in_panel = panel.full_history.index >= panel.calendar[0]
 
     rows = []
     for ticker in tickers:
@@ -182,18 +190,20 @@ def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.Dat
         first = history.index[0]
         years = (asof - first).days / 365.25
         obs_per_year = len(history) / years
-        median_volume = panel.full_volume[ticker].median()
+        dollar_volume = (panel.full_history[ticker] * panel.full_volume[ticker])[in_panel]
+        median_dollar_volume = dollar_volume[dollar_volume > 0].median() / 1e6
         info = meta.get(ticker, {})
         rows.append(
             {
                 "Ticker": ticker,
                 "Name": info.get("name", ticker),
+                "Sector": info.get("sector", "Benchmark"),
                 "Asset class": info.get("asset_class", "Benchmark"),
                 "Instrument": info.get("instrument", "ETF" if ticker == "SPY" else "Index"),
                 "First obs.": first.date().isoformat(),
                 "Years": years,
                 "Obs./yr": obs_per_year,
-                "Median volume": median_volume,
+                "Median $ volume (m)": median_dollar_volume,
                 f"Meets {cfg.MIN_YEARS_REQUIRED}y": "Yes" if years >= cfg.MIN_YEARS_REQUIRED else "No",
             }
         )
@@ -210,6 +220,10 @@ def quality_table(panel: Panel, tickers: list[str] | None = None) -> pd.DataFram
     `% zero-return days` is measured on the final, filled series, because that is
     what the analysis consumes; forward-filled sessions therefore show up here as
     zero returns, which is the honest reading.
+
+    `Days |r| > X%` counts daily log returns beyond `EXTREME_MOVE` -- the screen
+    for a corporate action the adjustment missed, which shows up as a one-day
+    crash or jump. `extreme_moves` lists them so each can be checked.
     """
     tickers = tickers or panel.assets
     rows = []
@@ -244,10 +258,34 @@ def quality_table(panel: Panel, tickers: list[str] | None = None) -> pd.DataFram
                 "Missing obs.": missing,
                 "Longest gap (sessions)": _longest_interior_nan_run(interior_raw),
                 "% zero-return days": zero_share,
+                f"Days |r| > {cfg.EXTREME_MOVE:.0%}": int((log_returns.abs() > cfg.EXTREME_MOVE).sum()),
                 "Treatment applied": "; ".join(treatments),
             }
         )
     return pd.DataFrame(rows).set_index("Ticker")
+
+
+def extreme_moves(panel: Panel, tickers: list[str] | None = None) -> pd.DataFrame:
+    """Every session on which an asset's daily log return exceeds `EXTREME_MOVE`
+    in absolute value, with how many other assets moved that far the same day.
+
+    A move shared with many others is a market event. A lone one is either
+    news or a data fault, and is checked against the corporate-action log.
+    """
+    tickers = tickers or panel.assets
+    log_returns = np.log(panel.prices[tickers]).diff()
+    flags = log_returns.abs() > cfg.EXTREME_MOVE
+    same_day = flags.sum(axis=1)
+    rows = [
+        {
+            "Date": day.date().isoformat(),
+            "Ticker": ticker,
+            "Log return %": log_returns.at[day, ticker] * 100,
+            "Assets past threshold that day": int(same_day.at[day]),
+        }
+        for day, ticker in flags.stack().loc[lambda x: x].index
+    ]
+    return pd.DataFrame(rows, columns=["Date", "Ticker", "Log return %", "Assets past threshold that day"])
 
 
 # --------------------------------------------------------------------------- #
@@ -322,10 +360,37 @@ def adjustment_table(
                 "Price return %/yr": price * 100,
                 "Distributions pp/yr": (total - price) * 100,
                 "Distribution events": n_distributions,
-                "Split / ratio events": n_splits,
+                "Split / spin-off events": n_splits,
             }
         )
     return pd.DataFrame(rows).set_index("Ticker")
+
+
+def corporate_actions(panel: Panel, splits: pd.DataFrame, tickers: list[str] | None = None) -> pd.DataFrame:
+    """Every split-type adjustment inside the panel, classified.
+
+    Yahoo books a spin-off as a fractional "split": the ratio is the parent's
+    pre-spin price over its post-spin price, so the adjusted series carries no
+    artificial crash. A whole-number ratio is a genuine split. The log return on
+    the event date is shown so the absence of a crash can be checked directly.
+    """
+    tickers = tickers or panel.assets
+    window = splits.loc[panel.calendar[0] + pd.Timedelta(days=1): panel.calendar[-1], tickers]
+    log_returns = np.log(panel.prices[tickers]).diff()
+    rows = []
+    for day, ticker in window.stack().loc[lambda x: x > 0].index:
+        ratio = float(splits.at[day, ticker])
+        rows.append(
+            {
+                "Date": day.date().isoformat(),
+                "Ticker": ticker,
+                "Ratio": ratio,
+                "Type": "Split" if abs(ratio - round(ratio)) < 1e-6 else "Spin-off (price factor)",
+                "Adjusted log return % that day": log_returns.at[day, ticker] * 100
+                if day in log_returns.index else np.nan,
+            }
+        )
+    return pd.DataFrame(rows, columns=["Date", "Ticker", "Ratio", "Type", "Adjusted log return % that day"])
 
 
 # --------------------------------------------------------------------------- #
