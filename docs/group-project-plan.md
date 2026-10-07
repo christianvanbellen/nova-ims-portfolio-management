@@ -1,7 +1,7 @@
 # Group project — detailed plan
 
 **Deadline:** 30 October 2026, via Moodle · **Weight:** 14/20
-**Inputs:** `project-description.md` (the brief) · [`project-definitions.md`](project-definitions.md) (universe, benchmark, conventions)
+**Inputs:** `project-description.md` (the brief) · [`project-definitions.md`](project-definitions.md) (universe, benchmark, conventions) · [`group-work-division.md`](group-work-division.md) (the group's draft split, reconciled against this plan)
 
 Granular task list for the group project. Every task names its **direct output** and the **format that
 output takes**, so nothing is produced twice or in a shape the report cannot use.

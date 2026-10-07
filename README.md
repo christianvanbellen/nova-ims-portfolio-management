@@ -29,7 +29,7 @@ PDF in `classes/`).
 | --- | --- |
 | `project-description.md` | The assignment brief: tasks, methodology, deliverables, deadline |
 | `classes/` | Lecture material — lab notebooks and scripts (Python and R), reference PDF |
-| `docs/` | [`project-definitions.md`](docs/project-definitions.md) — universe, benchmark and data conventions · [`group-project-plan.md`](docs/group-project-plan.md) — the task-by-task plan · report drafts |
+| `docs/` | [`project-definitions.md`](docs/project-definitions.md) — universe, benchmark and data conventions · [`group-project-plan.md`](docs/group-project-plan.md) — the task-by-task plan · [`group-work-division.md`](docs/group-work-division.md) — the group's draft work split and where it diverges from the plan · report drafts |
 | `pyproject.toml` | Project dependencies |
 | `uv.lock` | Exact package versions, so everyone gets an identical environment |
 
