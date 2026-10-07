@@ -7,8 +7,8 @@ reduce that frame to the report's tables. The conventions are in
 `conventions_table` (Table 4.1), and the functions below implement exactly
 those.
 
-Nothing is written to disk. The grid takes seconds, so notebooks 05-07 each
-rebuild it from the seed.
+Nothing is written to disk. The grid takes a minute or two at the 10-asset
+subset size, so notebooks 05-07 each rebuild it from the seed.
 """
 
 from __future__ import annotations
@@ -70,17 +70,55 @@ def run_grid(
 
     Costs never change a weight decision, so the 1x and 2x runs trade
     identically and differ only in the cost deducted. Gross returns come from
-    the 1x runs.
+    the 1x runs. Each weight decision is therefore computed once and replayed
+    for the 2x run (`_replay`), which halves the optimisation work without
+    changing a single number.
     """
     runs, stressed = {}, {}
     for i, e in experiments.iterrows():
         block = bt.experiment_prices(prices, e)
         for name, fn in strategies.items():
+            replayed = _replay(fn)
             for store, costs in ((runs, bt.CostModel()), (stressed, bt.CostModel.stressed())):
                 store[(i, name)] = bt.run_backtest(
-                    block, fn, costs, schedule, risk_free=risk_free, experiment=i, strategy=name
+                    block, replayed, costs, schedule, risk_free=risk_free, experiment=i, strategy=name
                 )
     return Grid(runs=runs, stressed=stressed, experiments=experiments)
+
+
+def _replay(fn: Callable) -> Callable:
+    """Wrap a weight function so a repeated call on the same estimation window
+    returns the first call's weights -- or raises the first call's exception
+    again, so failures are logged identically. Keyed on the window's dates and
+    assets; valid within one experiment, where the prices are fixed. The
+    wrapper keeps `fn`'s signature as the loop sees it (`risk_free` or not).
+    """
+    memo: dict[tuple, tuple[bool, object]] = {}
+
+    def lookup(key: tuple, compute: Callable[[], object]):
+        if key not in memo:
+            try:
+                memo[key] = (True, compute())
+            except Exception as exc:  # stored, and raised again below
+                memo[key] = (False, exc)
+        ok, value = memo[key]
+        if not ok:
+            raise value
+        return value
+
+    def key_of(window: pd.DataFrame) -> tuple:
+        return (window.index[0], window.index[-1], tuple(window.columns))
+
+    if bt._accepts_risk_free(fn):
+        def replayed(window: pd.DataFrame, risk_free: pd.Series | None = None):
+            if risk_free is None:
+                return lookup(key_of(window), lambda: fn(window))
+            return lookup(key_of(window) + ("rf",), lambda: fn(window, risk_free=risk_free))
+        return replayed
+
+    def replayed_plain(window: pd.DataFrame):
+        return lookup(key_of(window), lambda: fn(window))
+    return replayed_plain
 
 
 # --------------------------------------------------------------------------- #
@@ -234,6 +272,34 @@ def cost_impact_table(frame: pd.DataFrame) -> pd.DataFrame:
         "Turnover %/yr": turnover.median() * 100,
     })
     return table.reindex(cfg.STRATEGY_ORDER)
+
+
+def paired_table(frame: pd.DataFrame, basis: str = "net", benchmark: str = "EW") -> pd.DataFrame:
+    """Table 4.5 -- every strategy against `benchmark` *in the same experiment*.
+
+    Table 4.2's medians are taken column by column, so a strategy can have a
+    higher median Sharpe than EW and still lose to it in most experiments.
+    Here every figure is a median of per-experiment differences, or the share
+    of experiments in which the strategy is better on that measure -- the
+    paired comparison the brief's win rate implies.
+    """
+    data = frame[basis]
+    rows = {}
+    for strategy in cfg.STRATEGY_ORDER:
+        if strategy == benchmark:
+            continue
+        mine = data.xs(strategy, level="strategy")
+        theirs = data.xs(benchmark, level="strategy")
+        rows[strategy] = {
+            "Median Δ Sharpe": (mine["sharpe"] - theirs["sharpe"]).median(),
+            "Beats EW (Sharpe) %": (mine["sharpe"] > theirs["sharpe"]).mean() * 100,
+            "Median Δ return pp": (mine["ann_return"] - theirs["ann_return"]).median() * 100,
+            "Median Δ vol pp": (mine["ann_vol"] - theirs["ann_vol"]).median() * 100,
+            "Lower vol %": (mine["ann_vol"] < theirs["ann_vol"]).mean() * 100,
+            "Median Δ max DD pp": (mine["max_dd"] - theirs["max_dd"]).median() * 100,
+            "Shallower DD %": (mine["max_dd"] > theirs["max_dd"]).mean() * 100,
+        }
+    return pd.DataFrame(rows).T.rename_axis("strategy")
 
 
 def representative_experiment(frame: pd.DataFrame, strategy: str, metric: str = "sharpe", basis: str = "net") -> int:

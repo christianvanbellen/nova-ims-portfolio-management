@@ -196,6 +196,7 @@ Brief: *Methodology — evaluate performance.* Report sections: **Results**.
 | E4 | Dispersion, not just the median | **Table 4.3 — Dispersion** | Per strategy: median, IQR, 10th and 90th percentile of Sharpe and of net return |
 | E5 | Same, as a figure | **Figure 4.1 — Sharpe ratio across 100 experiments** | Horizontal box plots, one row per strategy, sorted by median, EW drawn as a dashed reference line |
 | E6 | Proportion of experiments beating EW | **Figure 4.2 — Win rate vs equally weighted** | Horizontal bars, 50% reference line. Also as a column in Table 4.2 |
+| E6b | Paired comparison with EW: per-experiment differences in Sharpe, return, volatility and drawdown, plus the share of experiments better than EW on each; split by EW's own result | **Table 4.5 — Paired comparison with EW** | Rows: 7 strategies. The evidence behind the recommendation |
 | E7 | Gross vs net comparison | **Table 4.4 — Cost impact** | Per strategy: gross Sharpe, net Sharpe, difference, turnover. Shows who pays for their own trading |
 | E8 | Cumulative wealth, recommended strategy vs EW vs S&P 500 | **Figure 4.3 — Growth of $1** | One representative experiment, log y-axis, stated which experiment and why |
 | E9 | Weight evolution for the recommended strategy | **Figure 4.4 — Portfolio weights over time** | Stacked area, fixed asset order and colours |
@@ -236,7 +237,7 @@ in the appendix.
 | 2 | Data | 1.5 pages | Tables 1.1–1.3, Figures 1.1–1.2 |
 | 3 | Stylised facts | 3 pages | Tables 2.1–2.5, Figures 2.1–2.5 |
 | 4 | Methods and assumptions | 2 pages | Tables 3.1–3.2, 4.1 |
-| 5 | Results | 3 pages | Tables 4.2–4.4, Figures 4.1–4.4 |
+| 5 | Results | 3 pages | Tables 4.2–4.5, Figures 4.1–4.4 |
 | 6 | Robustness and limitations | 2 pages | Tables 5.1–5.3, Figure 5.1 |
 | 7 | Conclusions | 0.5 page | The recommendation, and the conditions under which we would reconsider it |
 | — | References | — | Ledoit–Wolf and any other cited source |

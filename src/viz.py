@@ -417,13 +417,49 @@ def wealth_paths(paths: dict[str, pd.Series], benchmarks: dict[str, dict], ax: p
 # E9 -- Figure 4.4, portfolio weights over time
 # --------------------------------------------------------------------------- #
 
+def _tint(hex_color: str, amount: float) -> str:
+    """Mix `hex_color` with white; `amount` 0 keeps it, 1 is white."""
+    rgb = np.array(mpl.colors.to_rgb(hex_color))
+    return mpl.colors.to_hex(rgb + (1 - rgb) * amount)
+
+
+def asset_shades(assets: list[str]) -> dict[str, str]:
+    """One colour per asset in a chart where several share a sector.
+
+    The first asset of each sector takes the sector colour; later ones step
+    lighter, so a pair from one sector stays distinguishable while the hue
+    still says which sector it is. Identity is also carried by labels.
+    """
+    seen: dict[str, int] = {}
+    shades = {}
+    for asset in assets:
+        sector = cfg.UNIVERSE.get(asset, {}).get("sector")
+        k = seen.get(sector, 0)
+        seen[sector] = k + 1
+        shades[asset] = _tint(color_for(asset), min(0.5 * k, 0.75))
+    return shades
+
+
 def weights_area(weights: pd.DataFrame, rebalances: list[pd.Timestamp], ax: plt.Axes | None = None) -> plt.Axes:
-    """Stacked area of daily weights, fixed asset order and colours, rebalance dates marked."""
+    """Stacked area of daily weights in the fixed asset order, rebalance dates marked.
+
+    Hue is the sector; a second asset from the same sector is a lighter tint of
+    it. Every band of at least 4% is labelled at the start of the chart, so
+    identity never rests on colour alone.
+    """
     assets = [a for a in cfg.ASSET_ORDER if a in weights.columns]
+    shades = asset_shades(assets)
     if ax is None:
         _, ax = plt.subplots(figsize=(7.8, 4.0))
-    ax.stackplot(weights.index, (weights[assets] * 100).T.to_numpy(), labels=assets,
-                 colors=[color_for(a) for a in assets], edgecolor=cfg.SURFACE, linewidth=1.0, alpha=0.9)
+    values = weights[assets] * 100
+    ax.stackplot(weights.index, values.T.to_numpy(), labels=assets,
+                 colors=[shades[a] for a in assets], edgecolor=cfg.SURFACE, linewidth=1.0)
+    first = values.iloc[0]
+    bottoms = first.cumsum() - first
+    for asset in assets:
+        if first[asset] >= 4:
+            ax.annotate(asset, xy=(weights.index[0], bottoms[asset] + first[asset] / 2), xytext=(4, 0),
+                        textcoords="offset points", va="center", fontsize=7, color=cfg.INK_PRIMARY)
     for i, date in enumerate(rebalances):
         ax.axvline(date, color=cfg.INK_SECONDARY, linewidth=0.8, linestyle=":", zorder=3,
                    label="Rebalance" if i == 0 else None)
@@ -434,5 +470,5 @@ def weights_area(weights: pd.DataFrame, rebalances: list[pd.Timestamp], ax: plt.
     ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y-%m"))
     ax.margins(x=0)
     ax.grid(False)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncols=len(assets) + 1)
+    ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), ncols=1)
     return ax
