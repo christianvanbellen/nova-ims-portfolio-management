@@ -133,6 +133,9 @@ ESTIMATION_YEARS = 2
 EVALUATION_YEARS = 1
 SUBSET_SIZE = 4
 REBALANCE_FREQ = "quarterly"
+REBALANCES_PER_YEAR: dict[str, int] = {"monthly": 12, "quarterly": 4, "annual": 1}
+REFIT_LOOKBACK_YEARS = 1  # trailing window for every re-estimate after the first
+EXECUTION_LAG = 1  # sessions between the formation close and the trade
 MV_RISK_AVERSION = 3.0  # lambda, so that MV != GMV != MSR
 
 #: Fixed strategy order for every table and figure. EW first -- it is the benchmark.

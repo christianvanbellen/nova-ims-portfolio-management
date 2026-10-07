@@ -131,8 +131,12 @@ whether the ranking holds.
 | Experiments | 100 |
 | Window | 3 contiguous years |
 | Split | 2 years estimation, 3rd year out-of-sample |
+| First estimate | Every return in the window up to the formation date (2 years less the lag) |
 | Estimation update | Trailing 1 year, rolling |
-| Rebalancing | Quarterly |
+| Rebalancing | Quarterly — every 63 sessions; opening trade at the close of the last estimation session |
+| Execution lag | 1 session — weights formed at close *t*, traded at close *t*+1, earning from *t*+2 |
+| Initial portfolio | Bought out of cash; its cost is charged, its 100% turnover is excluded from reported turnover |
+| Optimisation failure | Logged; hold the drifted weights (equal weight if none yet); the run is never dropped |
 | Subset size | 4 of 6 assets |
 | Constraints | Long-only, fully invested, no leverage |
 | Trading days/year | 252 |
@@ -149,3 +153,4 @@ The seed is fixed now and is not re-rolled after seeing results.
 | 2026-10-01 | Workstream A complete. The universe, benchmark, calendar and cost conventions above now live in code at `src/config.py`, which every notebook imports — change this page first, then that module. `notebooks/01_investment_universe.ipynb` rebuilt against the six-asset universe and runs clean top-to-bottom. The §3 table is reproduced as **Table 1.1** by `src.data.availability_table`; its volume column is a **full-history** median, which is the basis the figures above use. |
 | 2026-10-05 | Workstream B complete. `notebooks/02_stylised_facts.ipynb` runs clean top-to-bottom; statistics, tests, GARCH models and the verdict rules live in `src/stylised.py`, figures in `src/viz.py`. Conventions added: weekly/monthly stylised-facts series use **complete periods only** (first period and any trailing stub dropped); the serial-correlation verdict uses a **heteroskedasticity-robust** portmanteau, since plain Ljung–Box over-rejects under volatility clustering; GARCH models are fitted on percent log returns with a constant mean. Draft prose in `docs/report/02_stylised_facts.md`. |
 | 2026-10-07 | Dividend treatment made visible. **Table 1.3** (`src.data.adjustment_table`, notebook 01 §A5b) compares adjusted with price-only returns for the six assets, `SPY` and `^GSPC`; report §2.1–2.2 now cite it. Corrected two claims in the draft: unadjusted `VNQ` still grows ×1.9 (it is `GOVT` that goes backwards), and there are no split or ADR ratio events over the panel. Notebook 01 re-run with extraction date 2026-10-07; report §2 figures refreshed to match. |
+| 2026-10-07 | Workstream C complete. `notebooks/03_backtest_engine.ipynb` runs clean top-to-bottom, with all 10 unit tests passing and both deliberate-leak tests raising `LookAheadError`. The sampler, walk-forward loop, cost model and failure log live in `src/backtest.py`. §7 gains the timing conventions the loop fixes: first estimate, one-session execution lag, opening trade from cash, failure fallback. The sampled experiments are reproducible under the seed **and** the extraction date, because the eligible window starts grow with the panel. |

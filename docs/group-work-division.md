@@ -62,7 +62,7 @@ by output. Status is taken from the definitions changelog (§8).
 | 1b — returns and data treatment | A5b, A6, A9 (treatment prose) | `01_investment_universe` | 2. Data | **Done** (Table 1.3 added 2026-10-07) |
 | 1c — stylised facts | B1–B14 | `02_stylised_facts` | 3. Stylised facts | **Done** (2026-10-05) |
 | 2 — strategies | D1–D12 | `04_strategies` | 4. Methods | Not started |
-| 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | Not started |
+| 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | **Done** (2026-10-07) |
 | *Not in the draft* | E1–E10 — experiments and performance | `05_experiments`, `06_performance` | 5. Results | Not started |
 | *Not in the draft* | F1–F6 — robustness and limitations | `07_robustness` | 6. Robustness | Not started |
 | *Not in the draft* | G1–G6 — report, recommendation, submission | — | 1, 7, appendices | Not started |
