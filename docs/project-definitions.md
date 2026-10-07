@@ -160,7 +160,8 @@ The seed is fixed now and is not re-rolled after seeing results.
 | --- | --- |
 | 2026-10-07 | **Universe rebuilt on the professor's advice to use more assets.** The universe is now 25 assets in five sector groups (§1). It replaces the previous universe entirely. The lessons that universe taught are kept in §9, and git history holds the rest. Stylised-facts share: `JPM`. Panel start kept at 2011-10-01: all 25 assets have data from 2006-04-28, so the panel could include 2008, but the group kept the 15-year panel. |
 | 2026-10-07 | **Workstream A complete on the new universe.** `notebooks/01_investment_universe.ipynb` runs clean top-to-bottom, extraction date 2026-10-07; report §2 redrafted. Universe entries now carry their own sector and cost; asset order, sector groups, colours and `COSTS_BP` are derived from them. Asset colour = sector colour (palette slots 1–5), because 25 assets exceed the palette; Figure 1.2 is now small multiples. New: Table A1.1 (extreme-move screen) and Table A1.2 (corporate-action log, which classifies spin-offs). Table 1.1 reports median **dollar** volume over the panel. |
-| 2026-10-07 | **Workstreams B–E to be re-run** against the new universe, in order. Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
+| 2026-10-07 | **Workstream B complete on `JPM`.** `notebooks/02_stylised_facts.ipynb` runs clean top-to-bottom; report §3 redrafted. Three rule changes, each made because a test was invalid for this data, not because of the verdict it gave (two of the three make the verdict *weaker*): (1) **fact 3** is tested by moving-block bootstrap on moment *and* quantile skewness. The D'Agostino test's standard error was 6.5× too small under JPM's fat tails, and would have read weekly and monthly as *Supported*; they are now *Partial*. (2) **"Clustering identified"** (facts 6 and the failure log) now means at least one of α, γ significant. The old check only caught the α≈0/β≈1 collapse and missed JPM's monthly β≈0 one. (3) Anderson–Darling computed on the log scale (statsmodels overflowed to ∞). Added: half-life in Table 2.4; robustness tables A2.3 (without the COVID window) and A2.4 (leverage term under AR(1) mean, sample halves, without the window), so every number the report quotes is now printed by the notebook. |
+| 2026-10-07 | **Workstreams C–E to be re-run** against the new universe, in order. Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
 
 ---
 
@@ -184,13 +185,26 @@ where the check lives and what it shows for the current universe.
 | *New with this universe:* **spin-offs** arrive as fractional split ratios, and an unadjusted one would look like a crash | Tables A1.1 and A1.2, with asserted cross-checks | Three spin-offs, all adjusted cleanly |
 | *New with this universe:* **ex-post selection.** A list of today's large caps is tilted toward winners before any strategy runs | Growth commentary under Figure 1.2; report §2.5; limitations (F6) | 7 of 25 beat `SPY`; the top three are among today's largest companies |
 
-### Stylised facts (workstream B), to re-test on the new share
+### Stylised facts (workstream B)
 
 - Weekly and monthly series use **complete periods only**; drop the first period and any trailing stub.
-- Plain Ljung–Box **over-rejects** the no-serial-correlation hypothesis under volatility clustering.
-  The verdict uses a heteroskedasticity-robust portmanteau.
+- **Any test whose null assumes iid or normal data is suspect on returns.** Plain Ljung–Box over-rejects
+  no-serial-correlation under volatility clustering, so the verdict uses a heteroskedasticity-robust
+  portmanteau. *New with this universe:* the same is true of the D'Agostino skewness test under fat
+  tails, so skewness is tested by moving-block bootstrap. A test of *normality* (JB, kurtosis) is
+  fine, because there normality is the null being tested.
+- **Quantile skewness alongside moment skewness.** Moment skewness at daily frequency is a statement
+  about a handful of days; the quantile measure says whether the body of the distribution is skewed.
+- **A GARCH fit can collapse in two ways**: α at zero with β at one, or β at zero with α insignificant.
+  Judge "clustering identified" by whether any ARCH-type term is significant, and treat p-values of
+  parameters on a boundary as uninterpretable.
+- **Check every headline statistic without the crisis window** (`stylised.STRESS_WINDOW`). For `JPM`,
+  March 2020 carries half the daily kurtosis and all the daily serial correlation.
+- **Every number the report quotes must be printed by the notebook**, robustness checks included.
 - GARCH models are fitted on **percent** log returns with a constant mean. Decimal returns cause
   optimiser scaling problems.
+- *For the backtest:* the daily volatility half-life is about a month, shorter than the quarterly
+  rebalancing interval, and falls raise volatility about 2.7× as much as rises.
 
 ### Backtest engine (workstream C)
 

@@ -112,7 +112,7 @@ not assume it holds.
 
 | # | Task | Direct output | Format |
 | --- | --- | --- | --- |
-| B1 | Descriptive statistics for `JPM` log returns, three frequencies | **Table 2.1 — Descriptive statistics** | Rows: daily/weekly/monthly. Cols: n, mean %, sd %, min %, max %, skew, excess kurtosis, Jarque–Bera stat, p |
+| B1 | Descriptive statistics for `JPM` log returns, three frequencies | **Table 2.1 — Descriptive statistics** | Rows: daily/weekly/monthly. Cols: n, mean %, sd %, min %, max %, skew and quantile skew (bootstrap p), excess kurtosis, Jarque–Bera stat, p |
 | B2 | Return series plot, three frequencies | **Figure 2.1 — Log returns over time** | 3 stacked panels, shared x-axis; volatility clusters visible |
 | B3 | Histogram vs fitted normal + Q–Q plot, three frequencies | **Figure 2.2 — Return distribution** | 2 panels per frequency; main report shows daily, appendix the rest |
 | B4 | Normality tests: Jarque–Bera, Shapiro–Wilk, Anderson–Darling | Folded into Table 2.1 | Statistic and p-value |
@@ -122,6 +122,7 @@ not assume it holds.
 | B8 | ARCH-LM test for conditional heteroskedasticity | Row in Table 2.3 | Statistic, p-value |
 | B9 | Fit GARCH(1,1) with normal and Student-t errors | **Table 2.4 — Volatility model** | Cols: parameter, estimate, std. error, p. Both error assumptions side by side |
 | B10 | Fit GJR-GARCH / EGARCH; test the asymmetry term | Added to Table 2.4 | The γ term and its p-value is the leverage-effect evidence |
+| B10b | Robustness: headline statistics without the crisis window; leverage term with an AR(1) mean, on each half of the sample, without the window; half-life and rolling volatility | **Tables A2.3–A2.4** (appendix) | Every robustness claim in the prose must come from these |
 | B11 | News impact curve | **Figure 2.4 — News impact curve** | Shock on x, next-period conditional variance on y; asymmetry visible |
 | B12 | Standardised residuals: Q–Q against normal and Student-t, plus JB | **Figure 2.5** + row in Table 2.1 | Tests conditional non-normality — the sixth stylised fact |
 | B13 | Verdict table: each of the six stylised facts, the evidence, and whether it holds at each frequency | **Table 2.5 — Stylised facts summary** | Rows: the 6 facts. Cols: daily / weekly / monthly, each `Supported` / `Partial` / `Not supported`, plus the statistic cited |

@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from arch import arch_model
 from scipy import stats
-from statsmodels.stats.diagnostic import acorr_ljungbox, het_arch, normal_ad
+from statsmodels.stats.diagnostic import acorr_ljungbox, het_arch
 from statsmodels.tsa.stattools import acf as _acf
 
 from . import config as cfg
@@ -25,6 +25,14 @@ LB_LAGS = (5, 10, 20)         # Ljung-Box / ARCH-LM lags (plan B6, B8)
 ACF_LAGS = 40                 # ACF lags plotted (plan B6)
 ECONOMIC_RHO = 0.10           # |autocorrelation| below this is economically negligible
 TAIL_QUANTILES = (0.01, 0.05, 0.95, 0.99)
+SKEW_QUANTILE = 0.05          # quantile skewness uses the 5th and 95th percentiles
+BOOTSTRAP_DRAWS = 2000        # moving-block bootstrap replications
+
+#: A crisis window whose influence every headline statistic is checked against.
+#: It is a property of the sample, not of the share: March 2020 holds the panel's
+#: largest daily moves for most assets (notebook 01, Table A1.1).
+STRESS_WINDOW = ("2020-02-15", "2020-05-15")
+STRESS_LABEL = "COVID crash, mid-Feb to mid-May 2020"
 
 
 # --------------------------------------------------------------------------- #
@@ -58,20 +66,83 @@ def share_returns(
 # B1, B4, B12 -- Table 2.1, descriptive statistics and normality tests
 # --------------------------------------------------------------------------- #
 
+def block_bootstrap(x: np.ndarray, statistic, draws: int = BOOTSTRAP_DRAWS, seed: int = cfg.SEED) -> np.ndarray:
+    """`statistic` on `draws` circular moving-block resamples of `x`.
+
+    Blocks of length n^(1/3) keep the short-range dependence -- volatility
+    clustering above all -- that an iid bootstrap would destroy. `statistic`
+    takes a (draws, n) array and returns one value per row.
+    """
+    n = len(x)
+    block = max(1, int(round(n ** (1 / 3))))
+    rng = np.random.default_rng(seed)
+    starts = rng.integers(0, n, size=(draws, -(-n // block)))
+    index = (starts[:, :, None] + np.arange(block)).reshape(draws, -1)[:, :n] % n
+    return statistic(x[index])
+
+
+def quantile_skew(x: np.ndarray, q: float = SKEW_QUANTILE) -> np.ndarray:
+    """(Q(1-q) + Q(q) - 2 median) / (Q(1-q) - Q(q)), along the last axis.
+
+    Bounded in [-1, 1] and set by quantiles, not moments, so a handful of crash
+    days cannot drive it. Negative means the lower tail reaches further.
+    """
+    lo, mid, hi = np.quantile(x, [q, 0.5, 1 - q], axis=-1)
+    return (hi + lo - 2 * mid) / (hi - lo)
+
+
+def _bootstrap_p(estimate: float, draws: np.ndarray) -> float:
+    """Two-sided p-value for `estimate` = 0, from the bootstrap draws re-centred on zero."""
+    return float(np.mean(np.abs(draws - draws.mean()) >= abs(estimate)))
+
+
+def anderson_darling(x: np.ndarray) -> tuple[float, float]:
+    """Anderson-Darling normality test, mean and variance estimated.
+
+    scipy computes the statistic on the log scale, so a single extreme day
+    cannot overflow it to infinity. The p-value is the D'Agostino and Stephens
+    (1986, table 4.9) approximation, as statsmodels' `normal_ad` uses.
+    """
+    n = len(x)
+    stat = float(stats.anderson(x, "norm", method="interpolate").statistic)
+    a = stat * (1 + 0.75 / n + 2.25 / n**2)
+    if a >= 153.467:
+        p = 0.0
+    elif a >= 0.6:
+        p = np.exp(1.2937 - 5.709 * a + 0.0186 * a**2)
+    elif a >= 0.34:
+        p = np.exp(0.9177 - 4.279 * a - 1.38 * a**2)
+    elif a >= 0.2:
+        p = 1 - np.exp(-8.318 + 42.796 * a - 59.938 * a**2)
+    else:
+        p = 1 - np.exp(-13.436 + 101.14 * a - 223.73 * a**2)
+    return stat, float(p)
+
+
 def describe(series: pd.Series) -> dict[str, float]:
-    """One row of Table 2.1. Kurtosis is *excess* kurtosis."""
+    """One row of Table 2.1. Kurtosis is *excess* kurtosis.
+
+    Both skewness p-values come from a moving-block bootstrap. The textbook
+    D'Agostino skew test assumes normal data; under fat tails its standard
+    error is several times too small and it finds skew that is not there.
+    `Q-skew` is the quantile skewness at the 5th/95th percentiles.
+    """
     x = series.dropna().to_numpy()
     jb = stats.jarque_bera(x)
     sw = stats.shapiro(x)
-    ad_stat, ad_p = normal_ad(x)
+    ad_stat, ad_p = anderson_darling(x)
+    skew = float(stats.skew(x))
+    qskew = float(quantile_skew(x))
     return {
         "n": len(x),
         "Mean %": x.mean(),
         "SD %": x.std(ddof=1),
         "Min %": x.min(),
         "Max %": x.max(),
-        "Skew": stats.skew(x),
-        "Skew p": stats.skewtest(x).pvalue,
+        "Skew": skew,
+        "Skew p": _bootstrap_p(skew, block_bootstrap(x, lambda b: stats.skew(b, axis=1))),
+        "Q-skew": qskew,
+        "Q-skew p": _bootstrap_p(qskew, block_bootstrap(x, quantile_skew)),
         "Excess kurtosis": stats.kurtosis(x),
         "Kurtosis p": stats.kurtosistest(x).pvalue,
         "JB stat": jb.statistic,
@@ -267,9 +338,21 @@ class FitResult:
         return float(p["alpha[1]"] + p["beta[1]"] + p.get("gamma[1]", 0.0) / 2)
 
     @property
+    def half_life(self) -> float:
+        """Periods for a volatility shock to decay by half: ln(0.5) / ln(persistence)."""
+        return float(np.log(0.5) / np.log(self.persistence)) if 0 < self.persistence < 1 else np.nan
+
+    @property
     def degenerate(self) -> bool:
-        """An ARCH term at the zero bound with persistence at one: no clustering identified."""
-        return (not self.name.startswith("EGARCH")) and self.params["alpha[1]"] < 1e-4 and self.persistence > 0.999
+        """No clustering identified: no ARCH-type term (alpha, or gamma where the
+        model has one) is significant at `ALPHA`.
+
+        This covers both ways a GARCH fit collapses on too little data -- alpha
+        on its zero bound with beta at one, or beta on its zero bound with an
+        insignificant alpha -- and any case in between.
+        """
+        terms = [t for t in ("alpha[1]", "gamma[1]") if t in self.params.index]
+        return not any(self.result.pvalues[t] < ALPHA for t in terms)
 
 
 def fit_models(series: pd.Series, frequency: str) -> dict[str, FitResult]:
@@ -302,13 +385,91 @@ def model_table(fits: dict[str, FitResult]) -> pd.DataFrame:
         block = pd.DataFrame({"Estimate": r.params, "SE": r.std_err, "p": r.pvalues})
         block.index = [PARAM_LABELS.get(i, i) for i in block.index]
         extra = pd.DataFrame(
-            {"Estimate": [fit.persistence, r.loglikelihood, r.aic, r.bic, float(fit.converged)]},
-            index=["Persistence", "Log-likelihood", "AIC", "BIC", "Converged"],
+            {"Estimate": [fit.persistence, fit.half_life, r.loglikelihood, r.aic, r.bic, float(fit.converged)]},
+            index=["Persistence", "Half-life", "Log-likelihood", "AIC", "BIC", "Converged"],
         )
         blocks[name] = pd.concat([block, extra])
-    order = list(PARAM_LABELS.values()) + ["Persistence", "Log-likelihood", "AIC", "BIC", "Converged"]
+    order = list(PARAM_LABELS.values()) + ["Persistence", "Half-life", "Log-likelihood", "AIC", "BIC", "Converged"]
     table = pd.concat(blocks, axis=1)
     return table.reindex([i for i in order if i in table.index]).rename_axis("Parameter")
+
+
+# --------------------------------------------------------------------------- #
+# B10b -- robustness: sub-samples, mean specification, the crisis window
+# --------------------------------------------------------------------------- #
+
+def excluding_stress(series: pd.Series, window: tuple[str, str] = STRESS_WINDOW) -> pd.Series:
+    """`series` without the observations dated inside `window`."""
+    return series.drop(series.loc[window[0]: window[1]].index)
+
+
+def stress_sensitivity(series_by_freq: dict[str, pd.Series], window: tuple[str, str] = STRESS_WINDOW) -> pd.DataFrame:
+    """The headline statistics with and without the crisis window.
+
+    A fact that holds only because of a few weeks of extreme returns is a fact
+    about those weeks; this shows which verdicts are that fragile.
+    """
+    rows = []
+    for frequency, series in series_by_freq.items():
+        for label, x in (("Full sample", series), ("Excluding window", excluding_stress(series, window))):
+            d = describe(x)
+            rows.append(
+                {
+                    "Frequency": frequency,
+                    "Sample": label,
+                    "n": d["n"],
+                    "Skew": d["Skew"],
+                    "Skew p": d["Skew p"],
+                    "Q-skew": d["Q-skew"],
+                    "Q-skew p": d["Q-skew p"],
+                    "Excess kurtosis": d["Excess kurtosis"],
+                    "Lag-1 ρ": float(pd.Series(x.to_numpy()).autocorr()),
+                    f"Q*({LB_LAGS[1]}) p": robust_portmanteau(x, LB_LAGS[1])[1],
+                }
+            )
+    return pd.DataFrame(rows).set_index(["Frequency", "Sample"])
+
+
+def asymmetry_robustness(series: pd.Series, window: tuple[str, str] = STRESS_WINDOW) -> pd.DataFrame:
+    """GJR-t asymmetry term under alternative specifications and samples.
+
+    The sample is split at its midpoint date, so the check does not depend on
+    which share or which period is being analysed.
+    """
+    x = series.dropna()
+    middle = x.index[len(x) // 2]
+    variants = {
+        "Baseline (constant mean)": (x, "Constant"),
+        "AR(1) mean": (x, "AR"),
+        f"First half, to {x.index[len(x) // 2 - 1]:%Y-%m}": (x.loc[: x.index[len(x) // 2 - 1]], "Constant"),
+        f"Second half, from {middle:%Y-%m}": (x.loc[middle:], "Constant"),
+        "Excluding crisis window": (excluding_stress(x, window), "Constant"),
+    }
+    rows = []
+    for label, (sample, mean) in variants.items():
+        model = arch_model(sample, mean=mean, lags=1 if mean == "AR" else 0, **MODELS["GJR-t"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            r = model.fit(disp="off")
+        p = r.params
+        rows.append(
+            {
+                "Variant": label,
+                "n": int(r.nobs),
+                "γ": p["gamma[1]"],
+                "γ p": r.pvalues["gamma[1]"],
+                "α": p["alpha[1]"],
+                "Persistence": p["alpha[1]"] + p["beta[1]"] + p["gamma[1]"] / 2,
+                "ν": p["nu"],
+                "Converged": r.convergence_flag == 0,
+            }
+        )
+    return pd.DataFrame(rows).set_index("Variant")
+
+
+def rolling_volatility(daily: pd.Series, window: int = 63) -> pd.Series:
+    """Annualised rolling volatility of daily percent returns, in percent."""
+    return daily.rolling(window).std() * np.sqrt(cfg.TRADING_DAYS)
 
 
 # --------------------------------------------------------------------------- #
@@ -374,9 +535,10 @@ RULES = {
         "rejects, or kurtosis is not significant. Not supported if none rejects."
     ),
     FACTS[2]: (
-        "Supported if skewness is negative and significant (D'Agostino skew test). Partial if "
-        "it is significant but positive (asymmetric, not the negative kind). Not supported if "
-        "skewness is not significantly different from zero."
+        "Two measures, each tested by moving-block bootstrap: moment skewness and quantile "
+        f"skewness ({SKEW_QUANTILE:.0%}/{1 - SKEW_QUANTILE:.0%}). Supported if both are negative and "
+        "significant. Partial if one is. Not supported if neither is (significant positive skew "
+        "is reported in the evidence, but is not the negative kind the fact describes)."
     ),
     FACTS[3]: (
         "Supported if Ljung–Box on |r| and r² and ARCH-LM all reject at every lag. Partial if "
@@ -388,8 +550,9 @@ RULES = {
     ),
     FACTS[5]: (
         f"Supported if Jarque–Bera rejects on the {PREFERRED_MODEL} standardised residuals and "
-        "the model identifies clustering. Partial if JB rejects but the model is degenerate. "
-        "Not supported if JB does not reject."
+        "the model identifies clustering (at least one of α, γ significant). Partial if JB rejects "
+        "but no clustering is identified, so the residuals are barely filtered. Not supported if "
+        "JB does not reject."
     ),
 }
 
@@ -440,11 +603,11 @@ def verdicts(
         cells[(FACTS[1], frequency)] = (v, f"Excess kurtosis {d['Excess kurtosis']:.2f}; JB {_p(d['JB p'])}")
 
         # 3 -- skewness
-        if d["Skew p"] < ALPHA:
-            v = SUPPORTED if d["Skew"] < 0 else PARTIAL
-        else:
-            v = NOT_SUPPORTED
-        cells[(FACTS[2], frequency)] = (v, f"Skew {d['Skew']:.2f}, {_p(d['Skew p'])}")
+        negative = int(d["Skew"] < 0 and d["Skew p"] < ALPHA) + int(d["Q-skew"] < 0 and d["Q-skew p"] < ALPHA)
+        v = SUPPORTED if negative == 2 else PARTIAL if negative == 1 else NOT_SUPPORTED
+        cells[(FACTS[2], frequency)] = (
+            v, f"Skew {d['Skew']:.2f}, {_p(d['Skew p'])}; Q-skew {d['Q-skew']:.2f}, {_p(d['Q-skew p'])}"
+        )
 
         # 4 -- volatility clustering
         tests = ["Ljung–Box, absolute", "Ljung–Box, squared", "ARCH-LM"]

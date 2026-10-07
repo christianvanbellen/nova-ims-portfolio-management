@@ -1,139 +1,172 @@
 # 3. Stylised facts
 
-*Draft of report section 3. Target ~3 pages alongside Tables 2.1–2.5 and Figures 2.1–2.5. Every
-number is produced by [`notebooks/02_stylised_facts.ipynb`](../../notebooks/02_stylised_facts.ipynb);
-figures below are from the 5 October 2026 extraction and will be refreshed in the final re-run (plan G2).*
+*Draft of report section 3. Target ~3 pages alongside Tables 2.1–2.5 and Figures 2.1–2.5, with Tables
+A2.1–A2.4 and Figures A2.1–A2.4 in the appendix. Every number is produced by
+[`notebooks/02_stylised_facts.ipynb`](../../notebooks/02_stylised_facts.ipynb), extraction of 7 October
+2026, and will be refreshed in the final re-run (plan G2).*
 
 ---
 
 ## 3.1 What we tested, and the answer
 
-The brief asks us to take one share and test six features commonly said to describe asset returns —
-and to **assess** each one rather than assume it. We use **Taiwan Semiconductor (`TSM`)**, the most
-liquid single stock in the universe, over the full fifteen-year panel: **3,771 daily, 782 weekly and
-179 monthly** log returns from October 2011 to early October 2026 (monthly to September, the last complete month).
+The brief asks us to take one share and test six features commonly said to describe asset returns,
+and to **assess** each one rather than assume it. We use **JPMorgan Chase (`JPM`)** over the full
+fifteen-year panel: **3,773 daily, 782 weekly and 179 monthly** log returns, from October 2011 to
+early October 2026 (monthly returns run to September, the last complete month). A large bank is a
+demanding test case. Its share price carries both leverage and credit risk, and the sample includes
+the 2020 crash and the 2023 regional-bank failures.
 
 Each verdict follows a rule fixed in advance and applied mechanically (rules in the appendix), at the
 5% significance level. Table 2.5 is the result.
 
-**Table 2.5 — Stylised facts summary, `TSM`.** 2011-10 to 2026-10; n = 3,771 / 782 / 179.
+**Table 2.5 — Stylised facts summary, `JPM`.** 2011-10 to 2026-10; n = 3,773 / 782 / 179.
 
 | Stylised fact | Daily | Weekly | Monthly | Evidence |
 | --- | --- | --- | --- | --- |
 | 1. Little or no serial correlation in raw returns | Partial | Supported | Supported | Table 2.3, Figure 2.3a |
 | 2. Non-normal distribution, fat tails | Supported | Supported | Supported | Tables 2.1–2.2, Figure 2.2 |
-| 3. Asymmetry / negative skewness | Not supported | Not supported | Not supported | Table 2.1, Figure 2.2 |
-| 4. Volatility clustering | Supported | Supported | Partial | Table 2.3, Figures 2.1, 2.3b–c |
-| 5. Leverage effect | Not supported | Not supported | Not supported | Table 2.4, Figure 2.4 |
-| 6. Conditional non-normality | Supported | Supported | Not supported | Table 2.1, Figure 2.5 |
+| 3. Asymmetry / negative skewness | Partial | Partial | Partial | Table 2.1, Figure 2.2 |
+| 4. Volatility clustering | Supported | Supported | Not supported | Table 2.3, Figures 2.1, 2.3b–c |
+| 5. Leverage effect | Supported | Supported | Partial | Table 2.4, Figure 2.4 |
+| 6. Conditional non-normality | Supported | Supported | Partial | Table 2.1, Figure 2.5 |
 
-The pattern is as informative as any single cell. **The facts about the *size* of returns hold
-strongly** — fat tails, volatility clustering, and fat tails that survive a volatility model. **The
-facts about *direction* and *asymmetry* do not** — returns are not skewed, and bad news does not raise
-volatility measurably more than good news. And almost everything weakens as returns aggregate from
-daily to monthly, which is what we would expect if most of the non-normality is short-horizon.
+The pattern is as informative as any single cell. **At daily and weekly frequency, the classic picture
+of an equity holds almost in full.** Returns are fat-tailed, volatility clusters, bad news raises
+volatility more than good news, and the tails survive a volatility model. **Negative skewness is the
+exception.** It is present in every series, but it never clears both of our robust tests. **Almost
+everything weakens with aggregation.** By monthly frequency, volatility clustering is gone, and the
+facts that depend on it are only partially supported.
 
-## 3.2 Serial correlation: absent, except for one day
+Two checks run through the section, and both change what the table can claim. First, every test is
+valid under fat tails and clustering. Second, every headline statistic is recomputed without the
+COVID crash weeks (Appendix Table A2.3), because one quarter of extreme returns can carry a
+fifteen-year result.
 
-At weekly and monthly frequency there is no serial correlation in returns: no test rejects at any lag
-(Table 2.3). At daily frequency there is one exception — a **negative lag-1 autocorrelation of −0.09**
-(Figure 2.3a). An up day is slightly more likely to be followed by a partial reversal.
+## 3.2 Serial correlation: absent, except in a crash
 
-This result needed care. The standard test for autocorrelation (Ljung–Box) assumes calm, constant
-volatility; when volatility clusters, as it does here, the test finds autocorrelation that is not there.
-We therefore re-ran it in a form robust to changing volatility. The lag-1 effect survives (robust
-p<0.001), so it is real, but it is **economically negligible**: it explains under 1% of the next day's
-return variance, far less than the cost of trading on it. We record the daily cell as *Partial*.
+At weekly and monthly frequency there is no serial correlation in returns: no robust test rejects at
+any lag (Table 2.3). At daily frequency, the robust test rejects (p = 0.014), driven by a **negative
+lag-1 autocorrelation of −0.08** (Figure 2.3a).
 
-The likely source is structural rather than behavioural. `TSM` is an ADR: it trades in New York while
-the underlying share trades in Taipei during the US night. Part of each day's ADR price is the market
-catching up with, and partly reversing, a move that happened overnight in Taiwan. The effect disappears
-at weekly frequency, as it should if it is a timing artefact.
+This result needed care. The standard test (Ljung–Box) assumes constant volatility. When volatility
+clusters, as it does here, the test finds autocorrelation that is not there. In plain form it rejects
+at p < 0.001. We therefore use a version robust to changing volatility, which rejects far less
+emphatically. Even so, the effect is **economically negligible**: it explains under 1% of next-day
+return variance, far less than the cost of trading on it. Hence *Partial*.
 
-## 3.3 The distribution: fat-tailed, but not skewed
+The source is the crash, not the share. **Without mid-February to mid-May 2020, the daily lag-1
+autocorrelation is −0.02 and the robust test no longer rejects** (p = 0.90). March 2020 whipsawed: a
+−15% day, then +17%, then −16%. Those reversals are the whole of the daily effect.
 
-**Fat tails are the strongest result in the section** (Table 2.1). Daily excess kurtosis is **4.1**
-(a normal distribution has 0), and all three normality tests reject decisively. In practical terms
-(Table 2.2), daily `TSM` has more very quiet days *and* more extreme days than a normal distribution
-with the same volatility: the 5% and 95% quantiles sit slightly inside the normal's, the 1% and 99%
-outside them. Moves beyond four standard deviations occurred **16 times** in fifteen years, against
-fewer than one expected under normality.
+## 3.3 The distribution: very fat-tailed, mildly skewed
 
-Fat tails **fade with aggregation**: excess kurtosis falls to about 1.1 weekly and 1.3 monthly. Monthly
-normality is still rejected by Jarque–Bera (p = 0.001) and Shapiro–Wilk (p = 0.012), but only narrowly
-missed by Anderson–Darling (p = 0.061). With 179 observations the monthly evidence is real but thinner.
+**Fat tails are the strongest result in the section** (Table 2.1). Daily excess kurtosis is **11.1**,
+where a normal distribution has 0, and all three normality tests reject decisively. In practical terms
+(Table 2.2), `JPM` has more quiet days *and* more extreme days than a normal distribution with the same
+volatility: the 5% and 95% quantiles sit inside the normal's, while the 1% and 99% sit outside them.
+Moves beyond five standard deviations occurred **12 times** in fifteen years. A normal distribution
+expects one such day in roughly seven thousand years.
 
-**Skewness is not supported at any frequency.** The measured skewness is +0.01 daily, −0.01 weekly and
-+0.23 monthly, none significantly different from zero. Negative skewness — large falls more frequent
-than large rises — is a well-documented property of equity *indices*, but this share does not show it.
-Its largest daily rises (+11.9% in July 2020, +11.6% in April 2025, +11.3% in May 2023) are almost as
-large as its largest falls (−15.1% in March 2020, −14.3% in January 2025). Over this sample `TSM` was a
-growth stock repriced upward in a series of jumps, and that offsets the crash risk that produces
-negative skew elsewhere. We report this as *Not supported* rather than forcing the textbook answer.
+Fat tails **fade with aggregation**. Excess kurtosis falls to 4.1 weekly and 1.7 monthly, but every
+normality test still rejects at every frequency. The crash matters here too: without it, daily excess
+kurtosis halves to 5.2. That is still strongly fat-tailed, but the 2020 weeks alone account for half
+the headline figure.
 
-## 3.4 Volatility clustering: strong and persistent
+**Skewness needed a different test, and the result is *Partial* throughout.** The textbook skewness
+test assumes normal data. On data this fat-tailed, its standard error is too small by a factor of
+**6.5** at daily frequency, so it would "find" skew in a handful of extreme days. We therefore test two
+measures by bootstrap, resampling the actual data with its fat tails and clustering intact:
+
+- **Moment skewness**, the usual measure, is negative at every frequency (−0.08 daily, −0.34 weekly,
+  −0.66 monthly). It is significant only monthly (p = 0.03).
+- **Quantile skewness** compares how far the 5th and 95th percentiles sit from the median, so a few
+  extreme days cannot drive it. It is negative and significant at daily and weekly frequency
+  (p = 0.035 and 0.004), but not monthly.
+
+Each frequency passes one test but not both. The lower part of the distribution does reach further
+than the upper. At monthly frequency, the 1% quantile sits outside the normal's while the 99% sits
+inside it (Table 2.2). But the asymmetry is modest, and the measure most quoted in the literature
+cannot establish it at the horizons where the data are richest. Had we used the textbook test, weekly
+and monthly would have read *Supported*. We report the weaker answer because it is the one the data
+support.
+
+## 3.4 Volatility clustering: strong, fast, and short-horizon
 
 Large moves cluster together. Figure 2.1 shows calm stretches (2013–14, 2017) alternating with
-turbulent ones (2020, 2022, 2024–25), and Figure 2.3b–c measures it: the autocorrelation of absolute
-and squared returns is positive at every lag out to 40 days. Every test rejects at daily and weekly
-frequency (Table 2.3).
+turbulent ones: the end of the European debt crisis, the 2012 trading loss, 2015–16, March 2020, the
+2022 rate shock, the 2023 regional-bank failures and the April 2025 tariff shock. Figure 2.3b–c
+measures the clustering: the autocorrelation of absolute and squared returns is positive and decays
+slowly. Every test rejects at daily and weekly frequency (Table 2.3).
 
-A GARCH(1,1) model puts a number on it (Table 2.4). Persistence is **0.99**, which means a volatility
-shock takes roughly **six months (about 128 trading days) to halve**. Rolling three-month volatility ranged from **14%** (June
-2017) to **64%** (April 2020) annualised, against a full-sample average of 32%.
+GARCH models put a number on it (Table 2.4). Daily persistence is **0.95–0.98** across specifications,
+a **half-life of roughly one month** (about 22 trading days in the GJR model): after a shock,
+volatility falls halfway back to normal within a month. Rolling three-month volatility ranged from
+**11%** (late 2016) to **92%** (spring 2020) annualised, against a full-sample average of **27%**.
 
-At monthly frequency the evidence is only *Partial*. Short-lag tests on absolute returns still reject,
-but the GARCH model cannot be estimated: with 179 monthly observations the ARCH term falls to zero, so
-the model finds no clustering. Monthly averaging smooths away most of the day-to-day clustering that
-drives the result.
+At monthly frequency, **clustering is not supported**: none of the nine tests rejects. GARCH models
+fitted to monthly returns find no significant clustering term and put the persistence parameter on its
+zero bound. With a one-month half-life, volatility shocks have largely died out within the month that
+a monthly return sums over, so there is little left to cluster.
 
-## 3.5 Leverage effect: right sign, not significant
+## 3.5 Leverage effect: strong at daily frequency
 
 The leverage effect says that falls raise future volatility more than rises of the same size. We test
-it with two asymmetric models, GJR-GARCH and EGARCH. Both estimate the asymmetry term with the
-**expected sign**, and **neither is significant** (GJR p = 0.36, EGARCH p = 0.12; Table 2.4). The news
-impact curve (Figure 2.4) shows the scale: after a −4 standard deviation day, next-day variance is
-only about **9% higher** than after a +4 standard deviation day.
+it with two asymmetric models, GJR-GARCH and EGARCH. At daily frequency, **both estimate the
+asymmetry term with the expected sign, and both are significant at p < 0.001** (Table 2.4). In the
+GJR model nearly all the reaction to news is to *bad* news: the asymmetry term is 0.12, against 0.02
+for the symmetric term. The news impact curve (Figure 2.4) shows the scale. After a −4 standard
+deviation day, next-day variance is about **2.7 times** what it is after a +4 standard deviation day
+(2.2 times in EGARCH).
 
-We checked that this is not an artefact of the model. Adding an autoregressive term to the mean, or
-splitting the sample at 2019, leaves the asymmetry insignificant in every case. The finding is
-consistent with the literature, which locates the leverage effect mainly at **index** level. For a
-single growth stock, large positive surprises generate as much subsequent volatility as large negative
-ones.
+The daily result is robust (Appendix Table A2.4a). It holds with an autoregressive mean, in each half
+of the sample separately, and without the 2020 crash, with the asymmetry term between 0.10 and 0.13
+and significant every time. For a bank this is the expected result. A falling share price raises
+leverage and credit concern together, and both feed volatility.
+
+The **weekly** result is significant on the full sample, so the rule gives *Supported*. It is less
+robust, though. It comes from the second half of the sample (p = 0.83 in the first half), and without
+the crash it is only marginal (p = 0.054). **Monthly** evidence is *Partial*: EGARCH finds the
+asymmetry and GJR does not, in a model that identifies no clustering at all.
 
 ## 3.6 Conditional non-normality: the tails are not just volatility
 
 A natural question is whether the fat tails in §3.3 are *only* the result of volatility clustering:
-calm periods and turbulent periods, each normal, mixed together. If they were, then dividing each
-day's return by that day's estimated volatility would leave something normal. It does not. The
-standardised residuals from the GJR-GARCH model still have excess kurtosis of **2.7** daily and **1.0**
-weekly, and Jarque–Bera rejects at p<0.001 (Table 2.1, residual rows).
+calm periods and turbulent periods, each normal, mixed together. If they were, dividing each day's
+return by that day's estimated volatility would leave something normal. It does not. The standardised
+residuals from the GJR-GARCH model still have excess kurtosis of **4.2** daily and **2.1** weekly, and
+Jarque–Bera rejects at p < 0.001 (Table 2.1, residual rows).
 
 Figure 2.5 shows the same thing graphically. Against a normal distribution the residuals bend away in
-both tails; against the Student-t distribution the model estimated (**ν ≈ 5.4** degrees of freedom) they
-sit almost on the line. The model has done its job on volatility: no clustering remains in the squared
-residuals. Even so, **volatility clustering explains part of the fat tails, not all of them**, and this
-is why fat-tailed errors fit the data far better than normal ones in Table 2.4.
+both tails. Against the Student-t distribution the model estimated (**ν ≈ 5** degrees of freedom), they
+sit close to the line. The model has done its job on volatility: no clustering remains in the squared
+residuals. So **volatility clustering explains part of the fat tails, but not all of them**. That is
+why fat-tailed errors fit the data far better than normal ones in Table 2.4.
 
-Monthly residuals pass the normality test (p = 0.11), so we mark that cell *Not supported*. Because the
-monthly model is degenerate (§3.4), these residuals are close to the raw monthly returns rescaled, and
-the cell says more about the sample size than about the distribution.
+Monthly residuals still reject normality, narrowly (p = 0.018). But the monthly model identifies no
+clustering, so these "residuals" are close to the raw monthly returns rescaled. The cell is *Partial*:
+it says the monthly distribution is non-normal, not that the conditional distribution is.
 
 ## 3.7 What this means for the portfolio analysis
 
-Three implications carry into sections 4–6.
+Four implications carry into sections 4–6.
 
 1. **Volatility-based risk measures understate tail risk.** With conditional fat tails, a portfolio's
    volatility tells the committee less about its worst days than a normal model implies. That is why
-   section 5 reports drawdown-based measures (maximum drawdown, Sterling, Calmar) alongside Sharpe.
-2. **Volatility regimes are persistent but do change.** A six-month half-life means a trailing one-year
-   covariance estimate always partly reflects the previous regime. That favours the walk-forward refit
-   in our design, and it limits how much any estimate-dependent strategy can be expected to gain.
-3. **Returns are close to unpredictable in direction.** The only serial correlation is a small one-day
-   timing effect. Nothing in this section suggests that expected returns can be estimated precisely from
-   history. This is the standard argument for strategies that rely on risk estimates only (GMV, IV, ERC)
-   over those that also rely on estimated means (MV, MSR), and section 5 tests it directly.
+   section 5 reports drawdown-based measures (maximum drawdown, Sterling) alongside Sharpe.
+2. **Volatility moves faster than our estimates.** A one-month half-life means volatility regimes change
+   within a single quarterly rebalancing interval. A trailing one-year covariance estimate averages
+   over several of them. Risk-based strategies (GMV, IV, ERC) therefore respond to a volatility shock
+   with a lag of months, and they cut risk after the event rather than before it.
+3. **Falls and volatility arrive together.** Because of the leverage effect, the worst days are also
+   the ones that raise risk. A strategy that sizes positions by trailing volatility is therefore
+   fully invested going into a sell-off and de-risks only after it.
+4. **Returns are close to unpredictable in direction.** The only serial correlation is a crash-period
+   reversal. Nothing in this section suggests that expected returns can be estimated precisely from
+   history. That is the standard argument for strategies that use risk estimates only (GMV, IV, ERC)
+   over those that also use estimated means (MV, MSR), and section 5 tests it directly.
 
-*Limitation:* these are the properties of **one share**. The six assets in the universe differ widely —
-`GOVT` and `GC=F` almost certainly behave differently from a semiconductor equity — and we do not
-generalise the absence of skewness or leverage beyond `TSM`.
+*Limitations.* These are the properties of **one share**. The universe holds gold, silver, long
+Treasuries and real estate as well as equities, and those almost certainly behave differently. We do not
+generalise the leverage effect or the skewness result beyond `JPM`. And one quarter, March 2020, carries
+half the measured daily kurtosis and all of the daily serial correlation. Any evaluation year that
+contains it will be dominated by it.
