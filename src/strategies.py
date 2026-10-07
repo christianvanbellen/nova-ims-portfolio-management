@@ -9,12 +9,13 @@ leverage (definitions SS7). They share the estimation inputs as well, from
 `estimate`:
 
 - expected returns: the sample mean of daily simple returns, x 252;
-- covariance: the sample covariance, x 252 (`COVARIANCE`). With four assets
-  and at least 252 observations it is well conditioned. Ledoit-Wolf
-  shrinkage towards constant correlation is available as a switch, but by
-  design it pulls every correlation towards the average, and under equal
-  correlations ERC, MDP and IV coincide. Making it the default would erase
-  the contrast the brief asks for (D11).
+- covariance: the sample covariance, x 252 (`COVARIANCE`). At the subset size
+  (`cfg.SUBSET_SIZE`) and at least 252 observations it is adequately
+  conditioned. Ledoit-Wolf shrinkage towards constant correlation is available
+  as a switch, not the baseline: its intensity is driven by fourth moments, so
+  under fat tails it swings from mild to total shrinkage in crash windows,
+  and at total shrinkage ERC, MDP and IV coincide -- erasing the contrast the
+  brief asks for exactly when correlations matter most (D11).
 
 Every optimiser except ERC is a small convex quadratic programme (QP) of one
 form, solved *exactly* by `solve_qp`. ERC is solved by Newton's method on
@@ -130,9 +131,10 @@ def solve_qp(q: np.ndarray, c: np.ndarray, a: np.ndarray, b: float = 1.0) -> np.
     Solved exactly by enumerating the possible sets of non-zero weights. For
     each set, solve the equality-constrained KKT system, then keep the solution
     that is primal feasible (x >= 0) and dual feasible (no excluded asset would
-    improve the objective). With at most six assets that is at most 63 small
-    linear systems, so the answer has no solver tolerance and no
-    convergence failures. When Q is positive definite the solution is unique.
+    improve the objective). For n assets that is 2^n - 1 small linear
+    systems: about 20 ms at 10 assets, so the cap of 12 keeps it practical.
+    The answer has no solver tolerance and no convergence failures. When Q is
+    positive definite the solution is unique.
     """
     n = len(c)
     if n > 12:

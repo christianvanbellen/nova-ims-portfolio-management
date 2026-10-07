@@ -145,8 +145,8 @@ holds.
 | Asset subset | **10 of 25, sector-stratified**: 2 drawn uniformly from each of the 5 sectors, so every portfolio spans every sector (10⁵ possible subsets). `SUBSET_SIZE` and `SUBSET_GROUPS` in `src/config.py`; groups `None` gives an unstratified draw |
 | Constraints | Long-only, fully invested, no leverage |
 | Expected returns | Sample mean of daily simple returns over the estimation window, ×252 |
-| Covariance | Sample covariance, ×252. Ledoit–Wolf (constant correlation) is a switch for robustness only. To be re-checked in workstream D (§9) |
-| MV risk aversion | λ = 3, on annual decimal returns. To be re-checked in workstream D (§9) |
+| Covariance | Sample covariance, ×252. Ledoit–Wolf (constant correlation) is a switch for robustness only (workstream F); re-checked in D on the new universe and kept (§8) |
+| MV risk aversion | λ = 3, on annual decimal returns. Re-checked in D on the new universe and kept (§8) |
 | MSR risk-free | Mean `^IRX` over the estimation window, annualised. No asset above it → logged failure |
 | Trading days/year | 252 |
 
@@ -162,7 +162,8 @@ The seed is fixed now and is not re-rolled after seeing results.
 | 2026-10-07 | **Workstream A complete on the new universe.** `notebooks/01_investment_universe.ipynb` runs clean top-to-bottom, extraction date 2026-10-07; report §2 redrafted. Universe entries now carry their own sector and cost; asset order, sector groups, colours and `COSTS_BP` are derived from them. Asset colour = sector colour (palette slots 1–5), because 25 assets exceed the palette; Figure 1.2 is now small multiples. New: Table A1.1 (extreme-move screen) and Table A1.2 (corporate-action log, which classifies spin-offs). Table 1.1 reports median **dollar** volume over the panel. |
 | 2026-10-07 | **Workstream B complete on `JPM`.** `notebooks/02_stylised_facts.ipynb` runs clean top-to-bottom; report §3 redrafted. Three rule changes, each made because a test was invalid for this data, not because of the verdict it gave (two of the three make the verdict *weaker*): (1) **fact 3** is tested by moving-block bootstrap on moment *and* quantile skewness. The D'Agostino test's standard error was 6.5× too small under JPM's fat tails, and would have read weekly and monthly as *Supported*; they are now *Partial*. (2) **"Clustering identified"** (facts 6 and the failure log) now means at least one of α, γ significant. The old check only caught the α≈0/β≈1 collapse and missed JPM's monthly β≈0 one. (3) Anderson–Darling computed on the log scale (statsmodels overflowed to ∞). Added: half-life in Table 2.4; robustness tables A2.3 (without the COVID window) and A2.4 (leverage term under AR(1) mean, sample halves, without the window), so every number the report quotes is now printed by the notebook. |
 | 2026-10-07 | **Workstream C complete on the new universe.** The asset subset is now **10 of 25, two per sector** (§7), decided by the group before any strategy was run. The brief requires random subsets, and four of 25 would have left most portfolios as four single stocks with no defensive asset. A full-universe reference run was considered and deferred. The sampler now draws subsets directly instead of enumerating them, and drops the old universe-specific column. `notebooks/03_backtest_engine.ipynb` runs clean, with all 10 unit tests passing, both deliberate-leak tests raising `LookAheadError`, and tests 7–8 made universe-agnostic. New diagnostic: covariance conditioning at the subset size (median condition number 18; 24 of 100 experiments hold a financials pair above 0.85). |
-| 2026-10-07 | **Workstreams D–E to be re-run** against the new universe, in order. Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
+| 2026-10-07 | **Workstream D complete on the new universe.** `notebooks/04_strategies.ipynb` runs clean, with all 10 unit tests passing; the exact-QP cross-check now covers up to the 10-asset subset size, and the ERC test no longer assumes four assets. Both earlier decisions were re-examined on weight diagnostics only, before any performance was computed, and both were kept by the group. **Sample covariance kept, for a new reason.** Ledoit–Wolf now shrinks the median window only 14% (it was about 52%), and on average it would keep the IV/ERC/MDP contrast. But its intensity is erratic under fat tails: 5 of the 6 windows it shrinks more than halfway contain March 2020, and 2 are shrunk to full constant correlation, where ERC and MDP become IV. **λ = 3 kept.** MV is distinct from GMV everywhere and equals MSR in only 7 of 400 windows, all single-stock corners (it was 30). But MV holds a single asset in 30% of windows, reported as estimation error in μ. **MSR is defined in all 400 windows; the failure log is empty**, and the notebook now says so rather than crashing on an empty log. D11: the largest IV/ERC gap per window is a median of 7 pp (it was about 3), driven by the sector blocks and diversifiers. |
+| 2026-10-07 | **Workstream E to be re-run** against the new universe. Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
 
 ---
 
@@ -225,14 +226,19 @@ where the check lives and what it shows for the current universe.
 
 ### Strategies (workstream D), to re-check on the new universe
 
-- **Shrinkage can erase the contrast the brief asks for.** On a small, weakly correlated universe,
-  Ledoit–Wolf towards constant correlation (median intensity about 0.5) collapsed ERC and MDP onto IV.
-  The sample covariance was kept. With sector blocks at 0.75 correlation this may now behave
-  differently, so re-run the D11 check before carrying the decision over.
+- **Shrinkage can erase the contrast the brief asks for**, and how much depends on the universe and
+  the period. On a small, weakly correlated universe Ledoit–Wolf (median intensity about 0.5) collapsed
+  ERC and MDP onto IV everywhere. On the 25-asset universe it is mild on average (about 0.14), but its
+  fourth-moment intensity estimate is **erratic under fat tails**: it shrinks to full constant
+  correlation in some crash windows. Re-check the intensity *and where it spikes* whenever the
+  universe changes.
 - **λ = 3 can make MV coincide with MSR** when both land on a single-asset corner. The coincidences are
-  reported, not tuned away. Re-run D12.
+  reported, not tuned away. With 10 assets MV is a single asset in about 30% of windows; that is
+  estimation error in μ, and it is reported, not tuned.
 - **MSR is undefined** when no asset's expected return exceeds the risk-free rate. Log it and hold the
-  previous weights.
+  previous weights. With 10-asset subsets this never happened: one asset beating cash is almost certain.
+- **Code paths for empty results must be tested.** The failure-log display crashed the first time the
+  log was empty. An empty table is a result and must be shown as such (plan E10).
 - The exact QP solver enumerates supports, at a cost of 2ⁿ − 1 for an n-asset subset. It is measured
   at about 20 ms per solve at 10 assets (about 9 s per strategy over 400 rebalances): fine. It is
   infeasible at 25, so a full-universe run would need a different solver.
