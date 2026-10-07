@@ -89,6 +89,7 @@ Brief: *A.1, first half.* Report section: **Data**.
 | A3 | Build the NYSE calendar from `SPY`; reindex every series to it; drop BTC's non-NYSE dates | Aligned adjusted-close panel | Wide frame, dates × tickers |
 | A4 | Audit history and liquidity per asset | **Table 1.1 — Data availability** | Cols: ticker, name, class, instrument, first obs., years, obs./yr, median volume, meets 15y |
 | A5 | Count missing and stale observations per asset | **Table 1.2 — Data quality** | Cols: ticker, missing obs., longest gap (sessions), % zero-return days, treatment applied |
+| A5b | Quantify the adjustment: adjusted close against price-only close, six assets plus `SPY` and `^GSPC` | **Table 1.3 — Dividend and adjustment effect** | Cols: ticker, instrument, from, total return %/yr, price return %/yr, distributions pp/yr, distribution events, split / ratio events |
 | A6 | Build daily, weekly, monthly log and simple return frames | 6 return frames | Daily/weekly/monthly × log/simple |
 | A7 | Correlation matrix of daily returns, full-panel period | **Figure 1.1 — Asset correlation heatmap** | Diverging scale −1…+1, values in cells, fixed asset order |
 | A8 | Normalised price chart, all six plus S&P 500 | **Figure 1.2 — Cumulative growth of $1** | Log y-axis, benchmark dashed grey |
@@ -212,7 +213,7 @@ Brief: *Methodology — robustness; show whether conclusions depend on period or
 | F3 | Split results by **subset composition**: BTC in vs out | **Table 5.2 — Sensitivity to BTC inclusion** | Per strategy: median Sharpe with BTC, without, difference, n experiments each |
 | F4 | Same for `RNMBY`, given its liquidity | Rows added to Table 5.2 | Tests whether a thin asset drives the ranking |
 | F5 | Concentration: max weight and effective number of assets per strategy | **Table 5.3 — Concentration** | Per strategy: mean max weight %, mean effective N (1/Σwᵢ²) |
-| F6 | Write the limitations: overlapping windows are **not** 100 independent tests; survivorship bias; one vendor, one adjustment method; 12-year six-asset intersection; BTC weekend data dropped; `GC=F` is a futures proxy; FX risk inside the ADRs | Draft section | ~1 page. Each limitation states its direction of bias, not just its existence |
+| F6 | Write the limitations: overlapping windows are **not** 100 independent tests; survivorship bias; one vendor, one adjustment method; 12-year six-asset intersection; BTC weekend data dropped; `GC=F` is a futures proxy; FX risk inside the ADRs; gross-of-withholding dividends on the ADRs; no roll adjustment on `GC=F` | Draft section | ~1 page. Each limitation states its direction of bias, not just its existence |
 
 **Done when:** F6 names a direction of bias for each limitation, and the report never calls the 100
 experiments independent.
@@ -227,7 +228,7 @@ in the appendix.
 | § | Section | Length | Anchored by |
 | --- | --- | --- | --- |
 | 1 | Executive summary and recommendation | 1 page | Table 4.2, one named strategy, stated investor objective |
-| 2 | Data | 1.5 pages | Tables 1.1–1.2, Figures 1.1–1.2 |
+| 2 | Data | 1.5 pages | Tables 1.1–1.3, Figures 1.1–1.2 |
 | 3 | Stylised facts | 3 pages | Tables 2.1–2.5, Figures 2.1–2.5 |
 | 4 | Methods and assumptions | 2 pages | Tables 3.1–3.2, 4.1 |
 | 5 | Results | 3 pages | Tables 4.2–4.4, Figures 4.1–4.4 |

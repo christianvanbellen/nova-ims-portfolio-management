@@ -95,7 +95,7 @@ The report must state **both** the 15-year span and the 12.0-year six-asset inte
 | Item | Decision |
 | --- | --- |
 | Source | Yahoo Finance via `yfinance`, downloaded live each run; nothing written to disk |
-| Prices | `auto_adjust=True` — adjusted for splits and dividends (material for `GOVT` and `VNQ`) |
+| Prices | `auto_adjust=True` — adjusted for splits and dividends (material for `GOVT` and `VNQ`). Effect quantified in **Table 1.3** against the price-only series. Dividends are reinvested gross of withholding tax; `GC=F` carries no roll adjustment |
 | Log returns | `ln(P_t) − ln(P_{t−1})` — all stylised-facts analysis |
 | Simple returns | `P_t/P_{t−1} − 1` — all portfolio compounding and performance stats |
 | Weekly / monthly | Sum of daily log returns; weeks end Friday, months on the last trading day |
@@ -148,3 +148,4 @@ The seed is fixed now and is not re-rolled after seeing results.
 | 2026-10-01 | Initial baseline. Supersedes the earlier seven-asset draft in `notebooks/01_investment_universe.ipynb`. |
 | 2026-10-01 | Workstream A complete. The universe, benchmark, calendar and cost conventions above now live in code at `src/config.py`, which every notebook imports — change this page first, then that module. `notebooks/01_investment_universe.ipynb` rebuilt against the six-asset universe and runs clean top-to-bottom. The §3 table is reproduced as **Table 1.1** by `src.data.availability_table`; its volume column is a **full-history** median, which is the basis the figures above use. |
 | 2026-10-05 | Workstream B complete. `notebooks/02_stylised_facts.ipynb` runs clean top-to-bottom; statistics, tests, GARCH models and the verdict rules live in `src/stylised.py`, figures in `src/viz.py`. Conventions added: weekly/monthly stylised-facts series use **complete periods only** (first period and any trailing stub dropped); the serial-correlation verdict uses a **heteroskedasticity-robust** portmanteau, since plain Ljung–Box over-rejects under volatility clustering; GARCH models are fitted on percent log returns with a constant mean. Draft prose in `docs/report/02_stylised_facts.md`. |
+| 2026-10-07 | Dividend treatment made visible. **Table 1.3** (`src.data.adjustment_table`, notebook 01 §A5b) compares adjusted with price-only returns for the six assets, `SPY` and `^GSPC`; report §2.1–2.2 now cite it. Corrected two claims in the draft: unadjusted `VNQ` still grows ×1.9 (it is `GOVT` that goes backwards), and there are no split or ADR ratio events over the panel. Notebook 01 re-run with extraction date 2026-10-07; report §2 figures refreshed to match. |

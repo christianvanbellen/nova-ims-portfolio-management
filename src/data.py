@@ -251,6 +251,84 @@ def quality_table(panel: Panel, tickers: list[str] | None = None) -> pd.DataFram
 
 
 # --------------------------------------------------------------------------- #
+# A5b -- Table 1.3, dividend and adjustment effect
+# --------------------------------------------------------------------------- #
+
+def download_unadjusted(tickers: list[str] | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Download the price-only history for `tickers`, plus their corporate actions.
+
+    Returns (close, dividends, splits). With `auto_adjust=False` Yahoo's `Close`
+    is still restated for splits but *not* for distributions, so comparing it with
+    the adjusted close isolates exactly what the dividend adjustment contributes.
+    """
+    tickers = list(tickers or cfg.ASSET_ORDER + list(cfg.BENCHMARKS))
+    raw = yf.download(
+        tickers,
+        period="max",
+        auto_adjust=False,
+        actions=True,
+        progress=False,
+        threads=False,
+        group_by="column",
+    )
+    if raw.empty:
+        raise RuntimeError("Yahoo Finance returned no data -- check the network and retry.")
+
+    close = raw["Close"].reindex(columns=tickers)
+    dividends = raw["Dividends"].reindex(columns=tickers).fillna(0.0)
+    splits = raw["Stock Splits"].reindex(columns=tickers).fillna(0.0)
+    return close, dividends, splits
+
+
+def adjustment_table(
+    panel: Panel,
+    close_unadjusted: pd.DataFrame,
+    dividends: pd.DataFrame,
+    splits: pd.DataFrame,
+    tickers: list[str] | None = None,
+) -> pd.DataFrame:
+    """Table 1.3 -- annualised total return (adjusted close) against price return
+    (split-adjusted only), over each asset's own span within the panel.
+
+    The gap between the two is what distributions contributed. The unadjusted
+    series is put on the panel calendar with the same bounded forward-fill as the
+    adjusted one, so both are measured on identical dates.
+    """
+    tickers = tickers or (panel.assets + [cfg.PERFORMANCE_BENCHMARK, "^GSPC"])
+    meta = {**cfg.UNIVERSE, **cfg.BENCHMARKS}
+
+    rows = []
+    for ticker in tickers:
+        adjusted = panel.prices[ticker]
+        unadjusted = close_unadjusted[ticker].reindex(panel.calendar).ffill(limit=cfg.FFILL_LIMIT)
+        both = pd.concat([adjusted, unadjusted], axis=1, keys=["adj", "raw"]).dropna()
+        first, last = both.index[0], both.index[-1]
+        years = (last - first).days / 365.25
+
+        total = (both["adj"].iloc[-1] / both["adj"].iloc[0]) ** (1 / years) - 1
+        price = (both["raw"].iloc[-1] / both["raw"].iloc[0]) ** (1 / years) - 1
+
+        window = slice(first + pd.Timedelta(days=1), last)
+        n_distributions = int((dividends[ticker].loc[window] > 0).sum())
+        n_splits = int((splits[ticker].loc[window] > 0).sum())
+
+        info = meta.get(ticker, {})
+        rows.append(
+            {
+                "Ticker": ticker,
+                "Instrument": info.get("instrument", "ETF" if ticker == "SPY" else "Index"),
+                "From": first.date().isoformat(),
+                "Total return %/yr": total * 100,
+                "Price return %/yr": price * 100,
+                "Distributions pp/yr": (total - price) * 100,
+                "Distribution events": n_distributions,
+                "Split / ratio events": n_splits,
+            }
+        )
+    return pd.DataFrame(rows).set_index("Ticker")
+
+
+# --------------------------------------------------------------------------- #
 # A6 -- return frames
 # --------------------------------------------------------------------------- #
 
