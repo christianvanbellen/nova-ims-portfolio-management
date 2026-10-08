@@ -166,18 +166,19 @@ def build_panel(
 # --------------------------------------------------------------------------- #
 
 def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.DataFrame:
-    """Table 1.1 -- history and liquidity per asset, over each asset's full history.
+    """Table 1.1 -- history and liquidity per asset.
 
-    Every column, median volume included, is measured over the asset's own full
-    history rather than the panel, because the question the table answers is
-    whether the asset clears the brief's 15-year minimum. Measured this way the
-    table reconciles with definitions SS3.
+    The history columns (`First obs.`, `Years`, `Obs./yr`) are measured over the
+    asset's own full history rather than the panel, because the question they
+    answer is whether the asset clears the brief's 15-year minimum. Measured this
+    way the table reconciles with definitions SS3.
 
-    Liquidity is the exception: `Median $ volume` is measured over the *panel*,
-    because the question there is whether the asset is tradable in the period
-    the backtest uses, and dollars -- unlike shares -- compare across rows. It
-    is adjusted close times volume, so it slightly understates early-panel
-    turnover for assets that pay distributions.
+    `Median $ volume, panel` is measured over the 15-year *panel* only
+    (`panel.calendar[0]` onwards), not the full history, because the question
+    there is whether the asset is tradable in the period the backtest uses, and
+    dollars -- unlike shares -- compare across rows. It is adjusted close times
+    volume, so it slightly understates early-panel turnover for assets that pay
+    distributions.
     """
     tickers = tickers or panel.assets
     meta = {**cfg.UNIVERSE, **cfg.BENCHMARKS}
@@ -203,7 +204,7 @@ def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.Dat
                 "First obs.": first.date().isoformat(),
                 "Years": years,
                 "Obs./yr": obs_per_year,
-                "Median $ volume (m)": median_dollar_volume,
+                "Median $ volume, panel (m)": median_dollar_volume,
                 f"Meets {cfg.MIN_YEARS_REQUIRED}y": "Yes" if years >= cfg.MIN_YEARS_REQUIRED else "No",
             }
         )
