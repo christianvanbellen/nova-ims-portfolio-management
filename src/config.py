@@ -129,6 +129,37 @@ FFILL_LIMIT = 3  # interior gaps longer than this are reported, not patched
 EXTREME_MOVE = 0.15  # |daily log return| screened for missed corporate actions
 MIN_YEARS_REQUIRED = 15  # the brief's minimum history
 
+#: What caused each move flagged by the extreme-move screen (Table A1.1), from
+#: one pass through contemporary news. Keyed by (session, ticker); a flagged move
+#: with no entry is shown as unexplained, so a new universe or a later panel end
+#: surfaces the moves still to investigate.
+_COVID_CRASH = "COVID crash: S&P 500 -12% after the Fed cut to zero; worst day since 1987"
+_COVID_REBOUND = "COVID rebound: US national emergency declared, S&P 500 +9%"
+_STIMULUS = "Fed open-ended QE (23 Mar) and the CARES Act deal; S&P 500 +9%"
+EXTREME_MOVE_NOTES: dict[tuple[str, str], str] = {
+    ("2020-03-09", "BAC"): "Oil price war and COVID: S&P 500 -7.6%, first circuit-breaker halt; banks hit by the rate collapse",
+    ("2020-03-12", "WFC"): "COVID: US travel ban on Europe, S&P 500 -9.5%, second circuit-breaker halt",
+    **{("2020-03-13", t): _COVID_REBOUND for t in ["ORCL", "INTC", "JPM", "BAC", "GS", "AXP"]},
+    **{("2020-03-16", t): _COVID_CRASH for t in ["MSFT", "INTC", "UNH", "JPM", "BAC", "WFC", "VNQ"]},
+    ("2020-03-18", "AXP"): "COVID: S&P 500 -5%, fourth circuit-breaker halt; consumer-credit loss fears",
+    ("2020-03-24", "BAC"): _STIMULUS,
+    ("2020-03-24", "AXP"): _STIMULUS,
+    ("2020-07-24", "INTC"): "Q2 results: 7nm process delayed by six months",
+    ("2020-11-09", "AXP"): "Pfizer-BioNTech vaccine 90% efficacy; travel and spending names rally",
+    ("2022-04-29", "AMZN"): "Q1 results: first quarterly loss since 2015 (Rivian write-down), weak guidance",
+    ("2024-08-02", "INTC"): "Q2 results: guidance cut, 15% of staff laid off, dividend suspended",
+    ("2025-04-09", "INTC"): "90-day pause on 'Liberation Day' tariffs; S&P 500 +9.5%",
+    ("2025-04-17", "UNH"): "Q1 results: first earnings miss in years, 2025 guidance cut on Medicare Advantage costs",
+    ("2025-05-13", "UNH"): "CEO resigns and 2025 guidance suspended",
+    ("2025-09-10", "ORCL"): "Q1 FY26 results: contracted backlog (RPO) up to $455bn on AI cloud deals",
+    ("2025-09-18", "INTC"): "Nvidia takes a $5bn stake and co-develops chips with Intel",
+    ("2026-01-23", "INTC"): "Q4 results: Q1 guidance well below consensus on supply constraints",
+    ("2026-01-27", "UNH"): "CMS proposes near-flat (+0.09%) 2027 Medicare Advantage rates; 2026 revenue guided down",
+    ("2026-01-30", "SLV"): "Warsh named Fed chair nominee; dollar rallies, silver's parabolic run collapses",
+    ("2026-02-05", "SLV"): "CME raises silver futures margins again; renewed liquidation",
+    ("2026-04-24", "INTC"): "Q1 results: large beat on data-centre/AI demand, Q2 guidance above consensus",
+}
+
 # --------------------------------------------------------------------------- #
 # 4. Returns (definitions SS5)
 # --------------------------------------------------------------------------- #
