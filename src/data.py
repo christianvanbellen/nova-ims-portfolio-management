@@ -1,8 +1,9 @@
 """Download, align and audit the price panel; build the return frames.
 
 Covers workstream A tasks A2-A6. Nothing is written to disk: prices are pulled
-from Yahoo Finance on every run and the extraction date is carried on the
-`Panel` object so every table and figure can quote it.
+from Yahoo Finance on every run, cut at the locked `cfg.EXTRACTION_DATE`, and
+the extraction date is carried on the `Panel` object so every table and figure
+can quote it.
 """
 
 from __future__ import annotations
@@ -25,7 +26,8 @@ def download_raw(tickers: list[str] | None = None) -> tuple[pd.DataFrame, pd.Dat
     """Download the full available history for `tickers`.
 
     Returns (close, volume, extraction_date). Prices are `auto_adjust=True`, so
-    they are adjusted for splits and dividends (definitions SS5).
+    they are adjusted for splits and dividends (definitions SS5). History is cut
+    at the locked extraction date (definitions SS4).
     """
     tickers = list(tickers or cfg.ALL_TICKERS)
     raw = yf.download(
@@ -39,9 +41,19 @@ def download_raw(tickers: list[str] | None = None) -> tuple[pd.DataFrame, pd.Dat
     if raw.empty:
         raise RuntimeError("Yahoo Finance returned no data -- check the network and retry.")
 
+    raw = _before_extraction(raw)
     close = raw["Close"].reindex(columns=tickers)
     volume = raw["Volume"].reindex(columns=tickers)
-    return close, volume, date.today()
+    return close, volume, date.fromisoformat(cfg.EXTRACTION_DATE)
+
+
+def _before_extraction(raw: pd.DataFrame) -> pd.DataFrame:
+    """Keep sessions strictly before the locked extraction date.
+
+    The extraction day's own bar is dropped too: it may be an incomplete
+    intraday print.
+    """
+    return raw[raw.index < pd.Timestamp(cfg.EXTRACTION_DATE)]
 
 
 # --------------------------------------------------------------------------- #
@@ -313,6 +325,7 @@ def download_unadjusted(tickers: list[str] | None = None) -> tuple[pd.DataFrame,
     if raw.empty:
         raise RuntimeError("Yahoo Finance returned no data -- check the network and retry.")
 
+    raw = _before_extraction(raw)
     close = raw["Close"].reindex(columns=tickers)
     dividends = raw["Dividends"].reindex(columns=tickers).fillna(0.0)
     splits = raw["Stock Splits"].reindex(columns=tickers).fillna(0.0)

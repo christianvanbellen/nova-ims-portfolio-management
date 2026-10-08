@@ -125,6 +125,10 @@ ALL_TICKERS: list[str] = ASSET_ORDER + list(BENCHMARKS) + [RISK_FREE_TICKER]
 # --------------------------------------------------------------------------- #
 
 PANEL_START = "2011-10-01"  # 15 years of span, per the brief
+#: Locked extraction date. Downloads are cut to sessions strictly before it, so
+#: the panel ends on the last session completed at extraction and re-runs on a
+#: later day reproduce the same data. Move it only as a deliberate refresh.
+EXTRACTION_DATE = "2026-10-07"
 FFILL_LIMIT = 3  # interior gaps longer than this are reported, not patched
 EXTREME_MOVE = 0.15  # |daily log return| screened for missed corporate actions
 MIN_YEARS_REQUIRED = 15  # the brief's minimum history

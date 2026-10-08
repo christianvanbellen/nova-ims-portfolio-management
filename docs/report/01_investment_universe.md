@@ -9,8 +9,10 @@ Tables A1.1–A1.2 in the appendix. Every number is produced by
 ## 2.1 Source and adjustment
 
 All prices come from **Yahoo Finance** via the `yfinance` package, retrieved on **7 October 2026**.
-Nothing is cached: each notebook re-downloads what it needs. The extraction date, quoted once here and
-applying throughout, therefore fully determines every number in this report.
+Nothing is cached: each notebook re-downloads what it needs and cuts it at the extraction date, so the
+panel ends on **6 October 2026**, the last completed session, whenever the notebooks are re-run. The
+extraction date, quoted once here and applying throughout, therefore fully determines every number in
+this report.
 
 Prices are **adjusted closes**, restated for subsequent splits, spin-offs and cash distributions. This
 is equivalent to reinvesting each dividend on its ex-date, so every series is a total-return series.
@@ -100,7 +102,7 @@ genuinely flat session or a quote that was not updated, and thin trading produce
 Stale prices bias measured volatility down and correlations toward zero. An optimiser then sees such
 an asset as safer and more diversifying than it is.
 
-**No asset shows the problem.** Zero-return days range from **0.08% (`GS`) to 1.91% (`SLV`)**, the level
+**No asset shows the problem.** Zero-return days range from **0.11% (`GS`) to 1.91% (`SLV`)**, the level
 of liquid instruments that occasionally close unchanged. Liquidity is deep throughout. The thinnest
 asset, `CL`, trades a median **$220 million a day** over the panel, and `AAPL` trades $7.9 billion
 (Table 1.1). Every asset could absorb a fund's rebalancing without moving its price.
