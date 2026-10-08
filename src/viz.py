@@ -7,6 +7,8 @@ between notebooks.
 
 from __future__ import annotations
 
+import textwrap
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -141,6 +143,7 @@ def growth_small_multiples(
     groups: dict[str, list[str]],
     benchmark: str = cfg.PERFORMANCE_BENCHMARK,
     panel_size: tuple[float, float] = (1.9, 1.35),
+    title: str | None = None,
 ) -> tuple[plt.Figure, pd.DataFrame]:
     """Growth of $1, one small panel per asset, one row per group (sector).
 
@@ -172,19 +175,24 @@ def growth_small_multiples(
             ax.set_title(f"{ticker}  {wealth[ticker].iloc[-1]:.1f}×", fontsize=8.5, pad=3)
             ax.tick_params(labelsize=7)
             if col == 0:
-                ax.set_ylabel(group, fontsize=8, color=cfg.INK_PRIMARY)
+                ax.set_ylabel(textwrap.fill(group, 14), fontsize=8, color=cfg.INK_PRIMARY)
 
     axes[0, 0].set_yscale("log")
     axes[0, 0].yaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda v, _: f"${v:g}"))
     axes[0, 0].xaxis.set_major_locator(mpl.dates.YearLocator(5))
     axes[0, 0].xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y"))
+    fig.supylabel("Growth of $1 (log scale)", fontsize=9, color=cfg.INK_SECONDARY, x=-0.01)
+    # Reserve a header band so the title and legend clear the first row's panel titles.
+    header = 0.35 / fig.get_figheight()
+    fig.tight_layout(h_pad=0.6, w_pad=0.4, rect=(0, 0, 1, 1 - header))
+    if title:
+        fig.suptitle(title, x=0.0, y=1.0, ha="left", va="top",
+                     fontsize=11, fontweight="bold", color=cfg.INK_PRIMARY)
     fig.legend(
         handles=[mpl.lines.Line2D([], [], **cfg.BENCHMARK_STYLE)],
         labels=[f"{benchmark} (benchmark), in every panel"],
-        loc="upper right", bbox_to_anchor=(1.0, 1.02),
+        loc="upper right", bbox_to_anchor=(1.0, 1.0), borderaxespad=0.0, fontsize=8,
     )
-    fig.supylabel("Growth of $1 (log scale)", fontsize=9, color=cfg.INK_SECONDARY, x=-0.01)
-    fig.tight_layout(h_pad=0.6, w_pad=0.4)
     return fig, wealth
 
 
