@@ -480,3 +480,92 @@ def weights_area(weights: pd.DataFrame, rebalances: list[pd.Timestamp], ax: plt.
     ax.grid(False)
     ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), ncols=1)
     return ax
+
+
+# --------------------------------------------------------------------------- #
+# F2 -- Figure 5.1, paired Sharpe difference by evaluation year
+# --------------------------------------------------------------------------- #
+
+def paired_by_date(diff: pd.DataFrame, dates: pd.Series, shade: tuple[str, str] | None = None,
+                   shade_label: str = "") -> tuple[plt.Figure, np.ndarray]:
+    """Small multiples, one per strategy: each experiment's paired difference against its date.
+
+    `diff` is experiments x strategies (`robustness.paired_differences`), `dates`
+    the date each experiment is placed at. A zero line marks parity with EW and a
+    dark step line the median by calendar year of `dates`. `shade` (start, end)
+    greys the dates whose experiments contain that window.
+    """
+    strategies = list(diff.columns)
+    fig, axes = plt.subplots(2, 4, figsize=(11, 5.0), sharex=True, sharey=True)
+    x = dates.reindex(diff.index)
+    year = x.dt.year
+    for ax, s in zip(axes.flat, strategies):
+        if shade:
+            ax.axvspan(pd.Timestamp(shade[0]), pd.Timestamp(shade[1]), color=cfg.GRID_COLOR,
+                       alpha=0.6, linewidth=0, zorder=0, label=shade_label)
+        ax.axhline(0, **cfg.BENCHMARK_STYLE, zorder=1, label="Level with EW")
+        ax.scatter(x, diff[s], s=14, color=strategy_color(s), edgecolor=cfg.SURFACE, linewidth=0.6,
+                   zorder=2)
+        med = diff[s].groupby(year).median()
+        mid = pd.to_datetime([f"{y}-07-01" for y in med.index])
+        ax.plot(mid, med.to_numpy(), color=cfg.INK_PRIMARY, linewidth=1.4, marker="o", markersize=3,
+                zorder=3, label="Median by year")
+        ax.set_title(s, fontsize=9)
+        ax.xaxis.set_major_locator(mpl.dates.YearLocator(base=3))
+        ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y"))
+    for ax in axes.flat[len(strategies):]:
+        ax.axis("off")
+    handles, labels = axes.flat[0].get_legend_handles_labels()
+    axes.flat[-1].legend(handles, labels, loc="center", fontsize=8)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Sharpe minus EW's")
+    fig.tight_layout()
+    return fig, axes
+
+
+# --------------------------------------------------------------------------- #
+# F4 -- Figure 5.2, paired results by asset held
+# --------------------------------------------------------------------------- #
+
+#: Diverging map for "better / worse than EW": blue is better, red worse, grey level.
+BETTER_WORSE_CMAP = LinearSegmentedColormap.from_list(
+    "better_worse", [cfg.DIVERGING_HIGH, cfg.DIVERGING_MID, cfg.DIVERGING_LOW]
+)
+
+
+def asset_effect_heatmap(effect: pd.DataFrame, n_held: pd.Series,
+                         ax: plt.Axes | None = None) -> plt.Axes:
+    """Heatmap, assets (rows, fixed order, sector blocks) x strategies, values in cells.
+
+    Each cell is percentage points, so the scale is symmetric about zero and
+    rounded up to a multiple of 10. Row labels carry the asset and how many
+    experiments hold it.
+    """
+    assets = [a for a in cfg.ASSET_ORDER if a in effect.index]
+    values = effect.loc[assets]
+    limit = max(10.0, np.ceil(np.nanmax(np.abs(values.to_numpy())) / 10) * 10)
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6.4, 8.6))
+    image = ax.imshow(values.to_numpy(), cmap=BETTER_WORSE_CMAP, aspect="auto",
+                      norm=TwoSlopeNorm(vmin=-limit, vcenter=0.0, vmax=limit))
+    ax.set_xticks(range(values.shape[1]), values.columns)
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(len(assets)), [f"{a} ({n_held[a]})" for a in assets])
+    ax.grid(False)
+    ax.tick_params(length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    for i in range(values.shape[0]):
+        for j in range(values.shape[1]):
+            v = values.iat[i, j]
+            ink = "#ffffff" if abs(v) > 0.65 * limit else cfg.INK_PRIMARY
+            ax.text(j, i, f"{v:+.0f}", ha="center", va="center", fontsize=7, color=ink)
+    edge = -0.5
+    for sector in cfg.SECTOR_ORDER[:-1]:
+        edge += sum(a in assets for a in cfg.SECTOR_ASSETS[sector])
+        ax.axhline(edge, color=cfg.SURFACE, linewidth=2.5)
+    bar = ax.figure.colorbar(image, ax=ax, shrink=0.6)
+    bar.outline.set_visible(False)
+    bar.ax.tick_params(length=0, labelsize=8, colors=cfg.INK_SECONDARY)
+    bar.set_label("Share beating EW: held minus not held (pp)", fontsize=8, color=cfg.INK_SECONDARY)
+    return ax

@@ -215,14 +215,20 @@ Brief: *Methodology — robustness; show whether conclusions depend on period or
 | # | Task | Direct output | Format |
 | --- | --- | --- | --- |
 | F1 | Re-run at **2×** transaction costs | **Table 5.1 — Ranking under harsher costs** | Cols: strategy, rank at 1× cost, rank at 2×, net Sharpe at each. The question is whether the ranking changes |
-| F2 | Split results by **period**: early vs late windows | **Figure 5.1 — Sharpe by window start date** | Scatter, window start on x, Sharpe on y, one small multiple per strategy |
-| F3 | Split results by **subset composition**: with vs without a diversifier (`TLT` or `GLD`) | **Table 5.2 — Sensitivity to subset composition** | Per strategy: median Sharpe with, without, difference, n experiments each. *Proposed; confirm in F* |
-| F4 | Same for **sector concentration**: subsets holding two or more assets from one sector vs none | Rows added to Table 5.2 | Tests whether near-collinear pairs drive the ranking. *Proposed; confirm in F* |
+| F2 | Split results by **period**: the paired Sharpe difference with EW (Table 4.5's measure) against the start of the evaluation year | **Figure 5.1 — Paired Sharpe difference by evaluation year** | Small multiples, one per strategy: one dot per experiment, zero reference line, median by calendar year; evaluation years containing March 2020 shaded. Shows whether the conclusions drift over time |
+| F3 | Same, by **crisis exposure**: the `stylised.STRESS_WINDOW` (March 2020) falls in the evaluation year / in the estimation period only / neither | **Table 5.2 — Sensitivity to period and subset**, period rows | Rows: groups, with n. Cols: the 7 strategies, share of experiments beating EW on net Sharpe. Median Δ Sharpe and share with lower vol than EW go in **Table A5.1** |
+| F4 | Split by **asset subset**: subsets holding a near-collinear pair (correlation above 0.85 over the trailing year that ends the estimation period, C's threshold) vs not, re-checked within crash-free windows; and each asset held vs not held (about 40% of experiments hold each, by the two-per-sector draw) | Subset rows of Table 5.2 + **Figure 5.2 — Paired results by asset held** | Heatmap: rows the 25 assets in fixed order with sector blocks, columns the 7 strategies, cell = share beating EW when held minus when not held (pp), diverging palette centred on 0; caption states the two-standard-error yardstick |
 | F5 | Concentration: max weight and effective number of assets per strategy | **Table 5.3 — Concentration** | Per strategy: mean max weight %, mean effective N (1/Σwᵢ²) |
 | F6 | Write the limitations: overlapping windows are **not** 100 independent tests; survivorship bias and hindsight in choosing today's large caps; one vendor, one adjustment method; spin-offs treated as reinvested in the parent; dividends reinvested gross of tax; a 15-year panel without the 2008 crisis | Draft section | ~1 page. Each limitation states its direction of bias, not just its existence |
 
-**Done when:** F6 names a direction of bias for each limitation, and the report never calls the 100
-experiments independent.
+**Done when:** F6 names a direction of bias for each limitation, the report never calls the 100
+experiments independent, and one sentence states whether the conclusions depend on period or subset,
+read from F2–F4.
+
+F2–F4 are **descriptive, not tests**, which matches the brief's warning about overlapping windows. Each
+period is paired with one subset, so the period and subset splits are not fully separable; the report
+says so. No crossed (period × subset) design: the brief asks *whether* conclusions depend, not how much
+of the variance each source explains.
 
 ---
 
@@ -238,7 +244,7 @@ in the appendix.
 | 3 | Stylised facts | 3 pages | Tables 2.1–2.5, Figures 2.1–2.5 |
 | 4 | Methods and assumptions | 2 pages | Tables 3.1–3.2, 4.1 |
 | 5 | Results | 3 pages | Tables 4.2–4.5, Figures 4.1–4.4 |
-| 6 | Robustness and limitations | 2 pages | Tables 5.1–5.3, Figure 5.1 |
+| 6 | Robustness and limitations | 2 pages | Tables 5.1–5.3, Figures 5.1–5.2; Table A5.1 in the appendix |
 | 7 | Conclusions | 0.5 page | The recommendation, and the conditions under which we would reconsider it |
 | — | References | — | Ledoit–Wolf and any other cited source |
 | — | Reproducibility appendix | — | G4 below |
