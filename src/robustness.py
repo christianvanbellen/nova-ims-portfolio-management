@@ -1,8 +1,8 @@
 """Robustness: do the conclusions depend on the sampled period or the asset subset?
 
-Covers workstream F tasks F2-F4. Every function re-cuts the raw results frame
-from notebook 05 (`performance.results_frame`) and the experiments frame from
-the sampler; nothing is re-run. All comparisons are *paired* with EW in the same
+Covers workstream F tasks F1-F5. Every function re-cuts the raw results frame
+from notebook 05 (`performance.results_frame`), the experiments frame from the
+sampler, or the held weights in the grid; nothing is re-run. All comparisons are *paired* with EW in the same
 experiment, as in Table 4.5, because column-wise medians are not head-to-head
 results (definitions SS9).
 
@@ -18,6 +18,7 @@ import pandas as pd
 
 from . import backtest as bt
 from . import config as cfg
+from . import performance as pf
 from .stylised import STRESS_WINDOW
 
 #: Correlation above which two assets count as a near-collinear pair. The same
@@ -34,6 +35,28 @@ def paired_differences(frame: pd.DataFrame, metric: str = "sharpe", basis: str =
     values = frame[(basis, metric)].unstack("strategy")
     others = [s for s in cfg.STRATEGY_ORDER if s != benchmark]
     return values[others].sub(values[benchmark], axis=0)
+
+
+# --------------------------------------------------------------------------- #
+# F1 -- harsher costs
+# --------------------------------------------------------------------------- #
+
+def cost_ranking(frame: pd.DataFrame) -> pd.DataFrame:
+    """Table 5.1 -- rank by median net Sharpe at 1x and 2x costs, and the paired win rate at each.
+
+    Rank 1 is the highest median Sharpe. The 2x runs trade exactly as the 1x
+    runs (costs never change a weight), so any change in rank comes from the
+    cost deducted alone.
+    """
+    out = {}
+    for basis, label in (("net", "1x"), ("net_2x", "2x")):
+        sharpe = frame[(basis, "sharpe")].groupby("strategy").median()
+        out[f"Rank {label}"] = sharpe.rank(ascending=False, method="min").astype(int)
+        out[f"Net Sharpe {label}"] = sharpe
+        out[f"Beats EW (Sharpe) % {label}"] = pf.win_rate(frame, basis=basis) * 100
+    table = pd.DataFrame(out).reindex(cfg.STRATEGY_ORDER)
+    order = ["Rank 1x", "Rank 2x", "Net Sharpe 1x", "Net Sharpe 2x", "Beats EW (Sharpe) % 1x", "Beats EW (Sharpe) % 2x"]
+    return table[order].rename_axis("strategy")
 
 
 # --------------------------------------------------------------------------- #
@@ -126,3 +149,51 @@ def split_table(frame: pd.DataFrame, splits: dict[str, pd.Series], basis: str = 
                 "Lower vol %": (d_vol.loc[mask, s] < 0).mean() * 100,
             })
     return pd.DataFrame(rows).set_index(["split", "group", "strategy"])
+
+
+# --------------------------------------------------------------------------- #
+# F5 -- concentration, and what the held weights are exposed to
+# --------------------------------------------------------------------------- #
+
+def concentration(grid: pf.Grid) -> pd.DataFrame:
+    """Per run, the evaluation-year average of the daily max weight and effective N (1 / sum w^2).
+
+    Uses the weights actually held at each close, drift included, from the
+    opening trade to the end of the evaluation year. Rows (experiment,
+    strategy); max weight as a decimal.
+    """
+    rows = {}
+    for key, res in grid.runs.items():
+        w = res.weights.to_numpy()
+        rows[key] = {"max_weight": w.max(axis=1).mean(),
+                     "effective_n": (1 / (w ** 2).sum(axis=1)).mean(),
+                     "single_asset": (w.max(axis=1) > 0.99).mean()}
+    frame = pd.DataFrame.from_dict(rows, orient="index")
+    frame.index = pd.MultiIndex.from_tuples(frame.index, names=["experiment", "strategy"])
+    return frame
+
+
+def concentration_table(conc: pd.DataFrame) -> pd.DataFrame:
+    """Table 5.3 -- per strategy, means across experiments of `concentration`'s per-run figures."""
+    by = conc.groupby("strategy")
+    table = pd.DataFrame({
+        "Mean max weight %": by["max_weight"].mean() * 100,
+        "Mean effective N": by["effective_n"].mean(),
+        "Lowest effective N": conc["effective_n"].groupby("strategy").min(),
+        "Days in one asset %": by["single_asset"].mean() * 100,
+    })
+    return table.reindex(cfg.STRATEGY_ORDER)
+
+
+def weighted_exposure(grid: pf.Grid, values: pd.Series) -> pd.DataFrame:
+    """Per run, the evaluation-year average of sum_i w_i * values_i. Experiments x strategies.
+
+    `values` is indexed by asset: 0/1 flags give the capital held in a group
+    of assets, a yield gives the portfolio's yield.
+    """
+    out = {}
+    for key, res in grid.runs.items():
+        out[key] = float((res.weights @ values.reindex(res.weights.columns)).mean())
+    s = pd.Series(out)
+    s.index = pd.MultiIndex.from_tuples(s.index, names=["experiment", "strategy"])
+    return s.unstack("strategy")[cfg.STRATEGY_ORDER]

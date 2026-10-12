@@ -274,3 +274,13 @@ where the check lives and what it shows for the current universe.
 - **Give a noise yardstick with any many-cell split.** With about 40 vs 60 experiments per cell, two
   standard errors of a difference in shares are about ±20 pp; count the cells beyond it against the 5%
   chance would give, and remember that the cells in a row share experiments.
+- **Measure a limitation's direction when the weights allow it.** Hindsight in the universe and
+  gross-of-tax reinvestment both act through what each strategy holds: compare each strategy's
+  capital in the assets that went on to beat the index, and its distribution yield, with EW's
+  (Table A5.2). Here both point away from flattering the risk-based strategies.
+- **A cost stress on a liquid universe mostly confirms.** At 2–3 bp one-way, doubling costs moves no
+  rank. Read neighbours in a median ranking that sit within about 0.01 of Sharpe as ties at either
+  cost level.
+- **A live download can come back incomplete on a given run.** The sampler then fails loudly (no
+  complete window for a subset) rather than drawing on a gapped panel. Re-run the notebook; never
+  patch around it.

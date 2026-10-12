@@ -64,7 +64,7 @@ by output. Status is taken from the definitions changelog (§8).
 | 2 — strategies | D1–D12 | `04_strategies` | 4. Methods | **Done** on the 25-asset universe (2026-10-07) |
 | 2 — "rolling-window, walk-forward backtest" (one line) | C1–C9 | `03_backtest_engine` | 4. Methods | **Done** on the 25-asset universe, 10-asset sector-stratified subsets (2026-10-07) |
 | *Not in the draft* | E1–E10 — experiments and performance | `05_experiments`, `06_performance` | 5. Results | **Done** on the 25-asset universe (2026-10-07); ERC re-confirmed |
-| *Not in the draft* | F1–F6 — robustness and limitations | `07_robustness` | 6. Robustness | Not started |
+| *Not in the draft* | F1–F6 — robustness and limitations | `07_robustness` | 6. Robustness | **Done** on the 25-asset universe (2026-10-12); limitations drafted in the notebook |
 | *Not in the draft* | G1–G6 — report, recommendation, submission | — | 1, 7, appendices | Not started |
 
 Draft prose for Parts 1a–1c is current, in [`report/01_investment_universe.md`](report/01_investment_universe.md)
