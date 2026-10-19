@@ -124,10 +124,15 @@ ALL_TICKERS: list[str] = ASSET_ORDER + list(BENCHMARKS) + [RISK_FREE_TICKER]
 # 3. Panel and calendar (definitions SS4)
 # --------------------------------------------------------------------------- #
 
-PANEL_START = "2011-10-01"  # 15 years of span, per the brief
-#: Locked extraction date. Downloads are cut to sessions strictly before it, so
-#: the panel ends on the last session completed at extraction and re-runs on a
-#: later day reproduce the same data. Move it only as a deliberate refresh.
+#: Panel bounds, in the yfinance convention: `PANEL_START` inclusive, `PANEL_END`
+#: exclusive. The panel therefore runs from the first session on or after the
+#: start to the last session before the end, and re-runs on any later day
+#: reproduce the same sessions. Move either only as a deliberate refresh.
+PANEL_START = "2010-01-01"
+PANEL_END = "2026-10-01"
+#: The day the data were retrieved, quoted in captions as the brief asks. It does
+#: not cut the data -- `PANEL_END` does -- but Yahoo revises history, so it is
+#: part of what a re-run reproduces. Set it on the day of the final re-run.
 EXTRACTION_DATE = "2026-10-07"
 FFILL_LIMIT = 3  # interior gaps longer than this are reported, not patched
 EXTREME_MOVE = 0.15  # |daily log return| screened for missed corporate actions

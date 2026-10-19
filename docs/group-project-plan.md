@@ -42,7 +42,7 @@ supports — no 4-decimal Sharpe ratios.
 
 ### Figures
 
-- Caption **below**: `Figure 2.1 — JPM daily log returns against a fitted normal. 2011-10 to 2026-10, n = 3,773.`
+- Caption **below**: `Figure 2.1 — JPM daily log returns against a fitted normal. 2010-01 to 2026-09, n = <daily returns>.`
 - One y-axis per chart. **Never two scales on one chart** — use two charts or index both to 100.
 - Axes labelled with units. Date axes in `YYYY` or `YYYY-MM`.
 - Cumulative wealth on a **log y-axis**, as growth of $1.
@@ -219,7 +219,7 @@ Brief: *Methodology — robustness; show whether conclusions depend on period or
 | F3 | Same, by **crisis exposure**: the `stylised.STRESS_WINDOW` (March 2020) falls in the evaluation year / in the estimation period only / neither | **Table 5.2 — Sensitivity to period and subset**, period rows | Rows: groups, with n. Cols: the 7 strategies, share of experiments beating EW on net Sharpe. Median Δ Sharpe and share with lower vol than EW go in **Table A5.1** |
 | F4 | Split by **asset subset**: subsets holding a near-collinear pair (correlation above 0.85 over the trailing year that ends the estimation period, C's threshold) vs not, re-checked within crash-free windows; and each asset held vs not held (about 40% of experiments hold each, by the two-per-sector draw) | Subset rows of Table 5.2 + **Figure 5.2 — Paired results by asset held** | Heatmap: rows the 25 assets in fixed order with sector blocks, columns the 7 strategies, cell = share beating EW when held minus when not held (pp), diverging palette centred on 0; caption states the two-standard-error yardstick |
 | F5 | Concentration: max weight and effective number of assets per strategy | **Table 5.3 — Concentration** | Per strategy: mean max weight %, mean effective N (1/Σwᵢ²) |
-| F6 | Write the limitations: overlapping windows are **not** 100 independent tests; survivorship bias and hindsight in choosing today's large caps; one vendor, one adjustment method; spin-offs treated as reinvested in the parent; dividends reinvested gross of tax; a 15-year panel without the 2008 crisis | Draft section | ~1 page. Each limitation states its direction of bias, not just its existence |
+| F6 | Write the limitations: overlapping windows are **not** 100 independent tests; survivorship bias and hindsight in choosing today's large caps; one vendor, one adjustment method; spin-offs treated as reinvested in the parent; dividends reinvested gross of tax; a panel from 2010, without the 2008 crisis | Draft section | ~1 page. Each limitation states its direction of bias, not just its existence |
 
 **Done when:** F6 names a direction of bias for each limitation, the report never calls the 100
 experiments independent, and one sentence states whether the conclusions depend on period or subset,

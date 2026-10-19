@@ -1,9 +1,9 @@
 """Download, align and audit the price panel; build the return frames.
 
 Covers workstream A tasks A2-A6. Nothing is written to disk: prices are pulled
-from Yahoo Finance on every run, cut at the locked `cfg.EXTRACTION_DATE`, and
-the extraction date is carried on the `Panel` object so every table and figure
-can quote it.
+from Yahoo Finance on every run, cut at the fixed `cfg.PANEL_END`, and the
+extraction date is carried on the `Panel` object so every table and figure can
+quote it.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def download_raw(tickers: list[str] | None = None) -> tuple[pd.DataFrame, pd.Dat
 
     Returns (close, volume, extraction_date). Prices are `auto_adjust=True`, so
     they are adjusted for splits and dividends (definitions SS5). History is cut
-    at the locked extraction date (definitions SS4).
+    at the panel end (definitions SS4).
     """
     tickers = list(tickers or cfg.ALL_TICKERS)
     raw = yf.download(
@@ -41,19 +41,15 @@ def download_raw(tickers: list[str] | None = None) -> tuple[pd.DataFrame, pd.Dat
     if raw.empty:
         raise RuntimeError("Yahoo Finance returned no data -- check the network and retry.")
 
-    raw = _before_extraction(raw)
+    raw = _before_panel_end(raw)
     close = raw["Close"].reindex(columns=tickers)
     volume = raw["Volume"].reindex(columns=tickers)
     return close, volume, date.fromisoformat(cfg.EXTRACTION_DATE)
 
 
-def _before_extraction(raw: pd.DataFrame) -> pd.DataFrame:
-    """Keep sessions strictly before the locked extraction date.
-
-    The extraction day's own bar is dropped too: it may be an incomplete
-    intraday print.
-    """
-    return raw[raw.index < pd.Timestamp(cfg.EXTRACTION_DATE)]
+def _before_panel_end(raw: pd.DataFrame) -> pd.DataFrame:
+    """Keep sessions strictly before `cfg.PANEL_END`, which is exclusive."""
+    return raw[raw.index < pd.Timestamp(cfg.PANEL_END)]
 
 
 # --------------------------------------------------------------------------- #
@@ -181,11 +177,11 @@ def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.Dat
     """Table 1.1 -- history and liquidity per asset.
 
     The history columns (`First obs.`, `Years`, `Obs./yr`) are measured over the
-    asset's own full history rather than the panel, because the question they
+    asset's own full history to the panel end rather than the panel, because the question they
     answer is whether the asset clears the brief's 15-year minimum. Measured this
     way the table reconciles with definitions SS3.
 
-    `Median $ volume, panel` is measured over the 15-year *panel* only
+    `Median $ volume, panel` is measured over the *panel* only
     (`panel.calendar[0]` onwards), not the full history, because the question
     there is whether the asset is tradable in the period the backtest uses, and
     dollars -- unlike shares -- compare across rows. It is adjusted close times
@@ -194,7 +190,7 @@ def availability_table(panel: Panel, tickers: list[str] | None = None) -> pd.Dat
     """
     tickers = tickers or panel.assets
     meta = {**cfg.UNIVERSE, **cfg.BENCHMARKS}
-    asof = pd.Timestamp(panel.extraction_date)
+    asof = panel.calendar[-1]
     in_panel = panel.full_history.index >= panel.calendar[0]
 
     rows = []
@@ -325,7 +321,7 @@ def download_unadjusted(tickers: list[str] | None = None) -> tuple[pd.DataFrame,
     if raw.empty:
         raise RuntimeError("Yahoo Finance returned no data -- check the network and retry.")
 
-    raw = _before_extraction(raw)
+    raw = _before_panel_end(raw)
     close = raw["Close"].reindex(columns=tickers)
     dividends = raw["Dividends"].reindex(columns=tickers).fillna(0.0)
     splits = raw["Stock Splits"].reindex(columns=tickers).fillna(0.0)

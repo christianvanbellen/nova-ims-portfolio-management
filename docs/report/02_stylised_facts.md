@@ -5,6 +5,9 @@ A2.1–A2.4 and Figures A2.1–A2.4 in the appendix. Every number is produced by
 [`notebooks/02_stylised_facts.ipynb`](../../notebooks/02_stylised_facts.ipynb), extraction of 7 October
 2026, and will be refreshed in the final re-run (plan G2).*
 
+*Pending re-run: the panel bounds changed on 2026-10-19 to 2010-01-04 to 2026-09-30 (definitions §8).
+Every number and verdict below still comes from the previous panel (2011-10 to 2026-10).*
+
 ---
 
 ## 3.1 What we tested, and the answer

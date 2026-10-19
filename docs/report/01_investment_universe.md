@@ -4,15 +4,20 @@
 Tables A1.1–A1.2 in the appendix. Every number is produced by
 [`notebooks/01_investment_universe.ipynb`](../../notebooks/01_investment_universe.ipynb).*
 
+*Pending re-run: the panel bounds changed on 2026-10-19 (definitions §8). The bounds below are
+current; session counts, table figures and the commentary on them still come from the previous panel
+(2011-10 to 2026-10) and are refreshed when notebook 01 is re-run.*
+
 ---
 
 ## 2.1 Source and adjustment
 
 All prices come from **Yahoo Finance** via the `yfinance` package, retrieved on **7 October 2026**.
-Nothing is cached: each notebook re-downloads what it needs and cuts it at the extraction date, so the
-panel ends on **6 October 2026**, the last completed session, whenever the notebooks are re-run. The
-extraction date, quoted once here and applying throughout, therefore fully determines every number in
-this report.
+Nothing is cached: each notebook re-downloads what it needs and cuts it to a fixed panel, **1 January
+2010 to 1 October 2026** (end exclusive), so the panel ends on **30 September 2026** whenever the
+notebooks are re-run. The panel bounds and the retrieval date, quoted once here and applying
+throughout, therefore determine every number in this report; the retrieval date matters because the
+vendor revises history.
 
 Prices are **adjusted closes**, restated for subsequent splits, spin-offs and cash distributions. This
 is equivalent to reinvesting each dividend on its ex-date, so every series is a total-return series.
@@ -78,14 +83,14 @@ optimiser beats naive diversification, and whether the exercise beats simply own
 
 ## 2.3 Calendar, alignment and the 15-year requirement
 
-The panel runs **3 October 2011 to 6 October 2026**: **3,774 NYSE sessions**, a span of **15.0 years**,
+The panel runs **4 January 2010 to 30 September 2026**: **[n, at re-run] NYSE sessions**, a span of **16.7 years**,
 satisfying the brief's minimum.
 
 **Every asset is present for the whole panel.** The latest-listed, `SLV`, has data from April 2006,
 and most of the stocks reach back to the 1970s or earlier. The 15-year requirement therefore binds on
-the panel, not on any asset, and the intersection in which all 25 have data is the full 15.0 years.
-The universe would have allowed a start in May 2006, bringing the 2008 crisis into the sample. We kept
-the 15-year panel. As a result, the sample's stress periods are the March 2020 crash and the 2022
+the panel, not on any asset, and the intersection in which all 25 have data is the full panel.
+The universe would have allowed a start in May 2006, bringing the 2008 crisis into the sample. We start
+in January 2010 instead. As a result, the sample's stress periods are the March 2020 crash and the 2022
 rate shock, and not a banking crisis. This matters for a universe with five banks and financials in
 it (section 6).
 

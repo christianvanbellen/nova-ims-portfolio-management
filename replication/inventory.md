@@ -96,7 +96,7 @@ Tracked files only, excluding the course material in `classes/`.
 | `docs/group-project-plan.md` | Workstreams A–G, every table and figure specified, schedule, checklist |
 | `docs/group-work-division.md` | The group's draft split, set against the plan |
 | `docs/report/01_investment_universe.md`, `02_stylised_facts.md` | Draft report sections 2 and 3 |
-| `src/config.py` | Universe (25 assets with sector and cost), seed, window, subset rule, λ, lag, extraction date |
+| `src/config.py` | Universe (25 assets with sector and cost), seed, window, subset rule, λ, lag, panel bounds, extraction date |
 | `src/data.py` | Download, calendar, panel, returns, data-quality tables |
 | `src/stylised.py` | Stylised-fact tests and GARCH-family fits |
 | `src/backtest.py` | Sampler, walk-forward loop, look-ahead guard, cost model, failure log, design tables |
@@ -114,7 +114,7 @@ Tracked files only, excluding the course material in `classes/`.
 | `pyproject.toml`, `uv.lock` | Locked environment |
 
 Results are not written to disk. Every table is printed by the notebook that builds it, and the panel is cut
-at the locked extraction date (2026-10-07) so a re-run reproduces it.
+at the fixed panel end (`end="2026-10-01"`, exclusive) so a re-run reproduces it.
 
 ---
 

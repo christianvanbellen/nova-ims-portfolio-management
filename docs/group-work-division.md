@@ -105,7 +105,7 @@ the critical path: plan §9 has E as the long pole.
 | # | Topic | Draft says | Plan decided | Where |
 | --- | --- | --- | --- | --- |
 | C-1 | Universe | "a few assets, shares, stocks, etf, commodities" | 25 assets in five sector groups of five: technology, healthcare, financials and consumer-staples stocks, plus gold, silver, long Treasuries, real estate and an energy stock. Rebuilt on the professor's advice to use more assets | Definitions §1 |
-| C-2 | 15-year minimum | "min 15 years until today" | Panel spans 15.0 years (from 2011-10-01), and every asset has data throughout: the shortest history is 20.4 years. The panel could start in 2006 but was kept at 15 years | Definitions §3–4 |
+| C-2 | 15-year minimum | "min 15 years until today" | Panel runs 2010-01-04 to 2026-09-30 (16.7 years; bounds `2010-01-01` to `2026-10-01`, end exclusive), and every asset has data throughout: the shortest history is 20.4 years. The panel could start in 2006 | Definitions §3–4 |
 | C-3 | Benchmark / index vs investable | Restates the brief's requirement | S&P 500 held outside the universe: `^GSPC` (non-investable index) vs `SPY` (investable tracker). No asset in the universe is a proxy | Definitions §1–2 |
 | C-4 | Weekly/monthly construction | "period-end prices **or** summing daily log returns" | **Summing daily log returns**. Weeks end on Friday, months on the last trading day; stylised facts use complete periods only | Definitions §5, changelog 2026-10-05 |
 | C-5 | Trading calendar | Restates the requirement | NYSE calendar from `SPY`. Off-calendar observations would be dropped and counted; none in this universe | Definitions §4 |

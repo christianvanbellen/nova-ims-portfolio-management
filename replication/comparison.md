@@ -73,8 +73,8 @@ departs from something the brief states explicitly.
 | Gold and silver | `GLD`, `SLV`: physically backed ETFs | `GC=F`, `SI=F`: continuous front-month **futures** | Diverge | Futures are proxies, not holdings (definitions §9). Yahoo's continuous series are not roll-adjusted, so each roll can print a jump that is not a return. Futures also trade on the CME calendar (below) |
 | Sector groups | 5 groups of 5; gold, silver, `TLT`, `VNQ`, `XOM` form *Real assets & defensive* | 7 groups: *Commodities and Bonds* (3), *Real Estate* (1), *Energy* (1) | Diverge | Matters only because ours stratifies the draw by group (§4). Theirs uses the groups for chart colours only |
 | Source and price | Yahoo, `auto_adjust=True` | Yahoo, `auto_adjust=False`, then `Adj Close` | Converge | Both are split- and dividend-adjusted |
-| Panel | 2011-10-03 to 2026-10-06, 3,774 sessions | 2010-01-04 to 2024-12-31 | Diverge · **Brief** | Theirs misses the latest 21 months. The brief asks for the latest available data |
-| Extraction date | Locked at 2026-10-07; downloads cut there | Not stated; `end="2025-01-01"` | Diverge · **Brief** | The brief asks for the extraction date to be stated |
+| Panel | 2010-01-04 to 2026-09-30 | 2010-01-04 to 2024-12-31 | Converge on start · Diverge on end · **Brief** | Theirs misses the latest 21 months. The brief asks for the latest available data |
+| Extraction date | Stated (2026-10-07); downloads cut at a fixed `end="2026-10-01"` | Not stated; `end="2025-01-01"` | Diverge · **Brief** | The brief asks for the extraction date to be stated |
 | Calendar | NYSE sessions from `SPY`; off-calendar prints dropped and counted (none) | Union of all tickers' dates | Diverge | With futures in the panel, CME sessions on NYSE holidays become rows where every stock is forward-filled and returns zero. This needs checking on their panel (not verifiable from the saved output) |
 | Gaps | Forward-fill up to 3 sessions; longer gaps reported (none) | Forward-fill up to 2; reports 0 missing | Converge | — |
 | Risk-free | `^IRX`, daily | 0 | Diverge | Raises every Sharpe and Sortino by roughly the T-bill yield over volatility. Matters most after 2022, when bills paid about 5%. Also changes MSR (§5) |
@@ -112,7 +112,7 @@ departs from something the brief states explicitly.
 | Optimisation failure | Logged; hold drifted weights (EW if none yet); run kept | `RuntimeError` stops the whole notebook | Diverge · **Brief** ("do not silently remove") |
 | Weight-sum check | `_as_weights` validation | Raises if off by more than 1e-4 | Converge |
 | Cost scenarios | Each weight decision computed once and replayed at 2×, verified identical | Full re-run for each fee level (7 × ≈ 2.7 min) | Converge on results; ours is faster |
-| Reproducibility | Locked extraction date, rebuild asserted bit-identical | Live download, no end-date lock, local Windows paths | Diverge |
+| Reproducibility | Fixed panel bounds, rebuild asserted bit-identical | Live download, no end-date lock, local Windows paths | Diverge |
 
 ---
 

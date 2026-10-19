@@ -48,8 +48,8 @@ def share_returns(
 
     The daily series starts on the panel's second session, so the first week and
     month always miss at least one day's move and are dropped. The last week or
-    month is dropped when the panel ends before that period does (an extraction
-    mid-month leaves a stub of a few sessions).
+    month is dropped when the panel ends before that period does (a panel end
+    mid-week or mid-month leaves a stub of a few sessions).
     """
     out = {}
     for frequency in cfg.FREQUENCY_ORDER:

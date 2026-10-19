@@ -1,6 +1,6 @@
 # Project definitions
 
-**Last updated:** 2026-10-07 · **Source of truth for the brief:** `project-description.md`
+**Last updated:** 2026-10-19 · **Source of truth for the brief:** `project-description.md`
 
 What we analyse and under which conventions. The plan and the notebooks assume this page. If something
 changes, change it here first and note it in §8. §9 keeps what earlier work taught us, so that a change
@@ -74,8 +74,11 @@ Every asset clears the 15-year minimum, most by decades. The latest-listed is `S
 | `^IRX` | 1960-01-04 | 66.7 | Risk-free |
 
 Consequences for the report: none of the history caveats a 15-year brief usually forces. The span
-**and** the all-asset intersection are both the full 15.0 years. Liquidity is deep everywhere, so no
-asset needs a staleness caveat.
+**and** the all-asset intersection are both the full panel, 2010-01-04 to 2026-09-30 (16.7 years).
+Liquidity is deep everywhere, so no asset needs a staleness caveat.
+
+*The figures in this section were measured on the previous panel (2011-10 to 2026-10) and are
+refreshed when workstream A is re-run on the current bounds (§8, 2026-10-19).*
 
 ---
 
@@ -83,8 +86,9 @@ asset needs a staleness caveat.
 
 | Convention | Decision |
 | --- | --- |
-| Panel start | `2011-10-01`. 15 years of span, per the brief. Kept on 2026-10-07 although the universe would allow a start in May 2006 (see §8) |
-| Panel end | Last session before the locked extraction date `2026-10-07` (`EXTRACTION_DATE` in `src/config.py`), i.e. 2026-10-06. Downloads are cut there, so a re-run on a later day reproduces the same panel. Moving the date is a deliberate refresh that re-runs every notebook |
+| Panel start | `2010-01-01`, inclusive (`PANEL_START` in `src/config.py`), so the first session is 2010-01-04. 16.7 years of span, clearing the brief's 15. The universe would allow a start in May 2006 (see §8) |
+| Panel end | `2026-10-01`, **exclusive** (`PANEL_END`), the yfinance `end` convention, so the last session is 2026-09-30, a month end. Downloads are cut there, so a re-run on a later day reproduces the same sessions. Moving either bound is a deliberate refresh that re-runs every notebook |
+| Extraction date | The day the data were retrieved (`EXTRACTION_DATE`), quoted in captions. It no longer cuts the data, but Yahoo revises history, so it is part of what a re-run reproduces. Set on the day of the final re-run (plan G2) |
 | Staggered entry | Assets enter on their own first observation. Pre-entry cells stay `NaN`, never zero- or back-filled. Not exercised by this universe, which is complete from the first session |
 | Full-panel date | First date every asset has data, derived in code (`Panel.full_panel_start`). Currently the panel's first session |
 | Sampler rule | A random window is drawn only from dates where every asset **in that drawn subset** has data |
@@ -166,6 +170,7 @@ The seed is fixed now and is not re-rolled after seeing results.
 | 2026-10-07 | **Workstream E complete on the new universe.** `notebooks/05_experiments.ipynb` builds the 800-run results frame and asserts it is bit-identical when rebuilt from the seed; `notebooks/06_performance.ipynb` produces Tables 4.1–4.5, A4.1, A.1 and Figures 4.1–4.4, A4.1. The grid computes each weight decision once and replays it for the 2× cost run (`performance._replay`, verified identical), about 30 s per grid. **New Table 4.5, the paired comparison with EW**: Table 4.2's column-wise medians showed ERC and MDP with a higher median Sharpe than EW, yet head-to-head they lose to EW in most experiments; every Table 4.5 figure is a per-experiment difference. **Findings:** no strategy beats EW in a clear majority (MDC 53%, a tie); IV and ERC have lower volatility than EW in 100% and 98% of experiments and shallower drawdowns in about 80%, for 1–2 pp of return; ERC trails EW only in EW's strongest third of years; costs move Sharpe by under 0.01; the near-collinear bank pairs do not raise turnover. **Recommended strategy: ERC, re-confirmed by the group**, for a capital-preservation / moderate-risk investor; EW for a return-seeking one. The failure log is empty (Table A.1 says so). Figure 4.4 shades a second same-sector asset as a lighter tint. | Their notebooks still run on the previous configuration's assumptions in places (e.g. subset size, the shrinkage and λ decisions) and their results are not current. |
 | 2026-10-08 | **Extraction date locked at 2026-10-07** (`EXTRACTION_DATE` in `src/config.py`, §4), the date notebooks 02–06 were run on. Downloads are cut to sessions before it, so the panel stays 2011-10-03 to 2026-10-06 (3,774 sessions) whatever day the notebooks are re-run. The extraction-day bar is dropped because it can be an incomplete intraday print. Re-running notebook 01 on the locked date reproduced the panel exactly except that Yahoo had revised a few historical prices since 2026-10-07: the lowest zero-return share is now 0.11% (`GS`, was 0.08%). The lock does not stop the vendor revising history. |
 | 2026-10-12 | **Workstream F started: F2–F4 (period and subset dependence).** `notebooks/07_robustness.ipynb` builds Figures 5.1–5.2, Table 5.2 and appendix Table A5.1 from the same 800-run grid; helpers in `src/robustness.py`. Every split is paired with EW, as in Table 4.5, and described, not tested. The old F3/F4 splits (with vs without a defensive asset; sector concentration) were dropped because the two-per-sector draw makes them constant. A crossed period × subset design was considered and rejected: the brief asks *whether* conclusions depend, not how much of the variance each source explains. **Findings:** ERC's lower volatility than EW holds in every period and subset group (87–100%); the Sharpe comparison depends on where March 2020 falls (optimisers gain on EW when the crash is in the evaluation year, lose when it is only in the estimation data); a near-collinear pair hurts MV and MSR, while its apparent effect on the risk-based strategies is the period; no single asset decides the result. F1, F5 and F6 still to do. |
+| 2026-10-19 | **Panel bounds changed: start `2010-01-01`, end `2026-10-01` (exclusive).** The panel now runs 2010-01-04 to 2026-09-30, 16.7 years, and ends on a month end, so no trailing monthly stub. Both bounds live in `src/config.py` (`PANEL_START`, `PANEL_END`) and follow the yfinance convention: start inclusive, end exclusive. `EXTRACTION_DATE` no longer cuts the data; it records the retrieval day for captions and is set at the final re-run. The 2008 crisis stays outside the panel. Code and documentation updated; **every notebook output, the report drafts and the workstream findings above still describe the previous panel (2011-10-03 to 2026-10-06)** until workstreams A → F are re-run in order. |
 
 ---
 
@@ -180,7 +185,7 @@ where the check lives and what it shows for the current universe.
 | --- | --- | --- |
 | A thinly traded instrument produces **stale prices**, which bias measured volatility down and correlations toward zero. Optimisers then over-weight it (IV directly, GMV and ERC through the covariance) | `% zero-return days` in Table 1.2; dollar liquidity in Table 1.1 | Clean: under 2% zero-return days everywhere, and at least $220m traded a day |
 | An asset that trades **off the NYSE calendar** (e.g. every day) must be reindexed. Dropping weekend prints understates its risk; aggregating them fattens Monday tails | Off-calendar count in A3; disclosed in report §2 | None |
-| **Short histories** can make the all-asset intersection shorter than the panel. Never pad. Use staggered entry and a subset-aware sampler, and state both spans | Staggered entry, sampler rule (§4), span/intersection check in notebook 01 | Not binding: intersection = panel = 15.0 years |
+| **Short histories** can make the all-asset intersection shorter than the panel. Never pad. Use staggered entry and a subset-aware sampler, and state both spans | Staggered entry, sampler rule (§4), span/intersection check in notebook 01 | Not binding: intersection = panel |
 | **Futures and spot series are proxies**, not holdings. Label them, and name the investable counterpart | `proxy_for` on each universe entry; done-when check | None |
 | **Foreign listings (ADRs)** carry FX inside the return and foreign withholding tax on dividends, which a gross adjustment overstates | Currency row in §5 | None. All US domestic listings |
 | **Dividend adjustment is material for income assets.** An unadjusted bond or REIT fund can show a loss on price alone | Table 1.3 | `TLT` is negative on price alone. Distributions are worth about 4 points a year for the highest-yielding names |
@@ -212,8 +217,8 @@ where the check lives and what it shows for the current universe.
 
 ### Backtest engine (workstream C)
 
-- The sampled experiments are reproducible under the seed **and** the extraction date, because the set
-  of eligible window starts grows as the panel grows.
+- The sampled experiments are reproducible under the seed **and** the panel bounds, because the set
+  of eligible window starts changes whenever the panel does.
 - The look-ahead guard must **raise**, and a deliberate-leak test must prove it does.
 - **The subset size is a design decision, not a detail.** It sets how much each portfolio can
   diversify, how many observations per asset the estimates get (252 / k), and how hard the optimiser's
