@@ -1,7 +1,7 @@
 # 2. Data
 
 *Draft of report section 2. Target ~1.5 pages alongside Tables 1.1–1.3 and Figures 1.1–1.2, with
-Tables A1.1–A1.2 in the appendix. Every number is produced by
+Tables A1.1–A1.3 in the appendix. Every number is produced by
 [`notebooks/01_investment_universe.ipynb`](../../notebooks/01_investment_universe.ipynb).*
 
 ---
@@ -112,7 +112,8 @@ asset, `CL`, trades a median **$206 million a day** over the panel, and `AAPL` t
 
 ## 2.5 What the data shows before any strategy
 
-Figure 1.1 gives daily log-return correlations over the panel, with assets grouped by sector. The mean
+Figure 1.1 gives daily log-return correlations over the panel, with assets grouped by sector; Table A1.3
+prints the same matrix in full. The mean
 pairwise correlation is **0.29**, but the average hides **strong sector structure**. Within a sector,
 names move together: the **financials correlate at 0.74** among themselves (`JPM`–`BAC` 0.85, the
 highest pair), consumer staples at 0.55, and technology and healthcare around 0.45. Across sectors the

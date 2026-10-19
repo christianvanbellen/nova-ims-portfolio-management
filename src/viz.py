@@ -125,6 +125,39 @@ def correlation_heatmap(
     return ax, corr
 
 
+def correlation_table(corr: pd.DataFrame, groups: list[list[str]] | None = None):
+    """The heatmap's matrix as a table: two decimals, the same diverging colours.
+
+    `groups` draws a rule after each block, as in `correlation_heatmap`. Returns
+    a pandas Styler for display; the numbers themselves stay in `corr`.
+    """
+    norm = TwoSlopeNorm(vmin=-1.0, vcenter=0.0, vmax=1.0)
+    ends: list[str] = []
+    if groups:
+        ends = [[t for t in block if t in corr.columns][-1] for block in groups[:-1]]
+    rule = f"2px solid {cfg.INK_SECONDARY}"
+
+    def cell_css(value: float, row: str, column: str) -> str:
+        r, g, b, _ = CORR_CMAP(norm(value))
+        ink = "#ffffff" if abs(value) > 0.65 else cfg.INK_PRIMARY
+        css = f"background-color: #{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}; color: {ink};"
+        if column in ends:
+            css += f" border-right: {rule};"
+        if row in ends:
+            css += f" border-bottom: {rule};"
+        return css
+
+    styles = pd.DataFrame(
+        [[cell_css(corr.at[r, c], r, c) for c in corr.columns] for r in corr.index],
+        index=corr.index, columns=corr.columns,
+    )
+    return (
+        corr.style.format("{:.2f}")
+        .apply(lambda _: styles, axis=None)
+        .set_table_styles([{"selector": "td, th", "props": "padding: 2px 4px; text-align: center; font-size: 9pt;"}])
+    )
+
+
 def _spread(positions, min_gap: float):
     """Push sorted label positions apart so none sit closer than `min_gap`."""
     out = positions.astype(float).copy()

@@ -104,7 +104,7 @@ Tracked files only, excluding the course material in `classes/`.
 | `src/performance.py` | 800-run grid, cost replay, metrics, Tables 4.1–4.5 |
 | `src/robustness.py` | Period, crisis, subset and asset splits; concentration; limitations measures |
 | `src/viz.py`, `src/fmt.py` | Shared chart and table formatting |
-| `notebooks/01_investment_universe.ipynb` | Workstream A: Tables 1.1–1.3, A1.1–A1.2, Figures 1.1–1.2 |
+| `notebooks/01_investment_universe.ipynb` | Workstream A: Tables 1.1–1.3, A1.1–A1.3, Figures 1.1–1.2 |
 | `notebooks/02_stylised_facts.ipynb` | Workstream B on `JPM`: Tables 2.1–2.5, A2.x, Figures 2.1–2.5 |
 | `notebooks/03_backtest_engine.ipynb` | Workstream C: Table 3.1, A3.x, 10 unit tests including deliberate-leak tests |
 | `notebooks/04_strategies.ipynb` | Workstream D: Table 3.2, weight diagnostics, 10 unit tests |
