@@ -1,6 +1,6 @@
 # Independent replication — where the two implementations converge and diverge
 
-**Recorded:** 2026-10-17 · **Compared:** this repository as of commit `75a78a7` (workstreams A–F) against
+**Recorded:** 2026-10-17, our figures refreshed 2026-10-19 on the 2010–2026 panel · **Compared:** this repository (workstreams A–F) against
 [`delivered/Backtesting_Implementation.ipynb`](delivered/Backtesting_Implementation.ipynb) and its
 exports, dated 2026-10-16 · **Files:** [`inventory.md`](inventory.md) ·
 **Brief:** [`project-description.md`](../project-description.md)
@@ -22,14 +22,14 @@ departs from something the brief states explicitly.
 
 1. **On the findings that matter, the two agree.** The two implementations differ in window length,
    estimation window, risk-free rate, costs, benchmark and aggregation, yet the paired results line up
-   closely. No strategy beats equal weight on Sharpe in a clear majority of experiments, and MDC is the only
-   one above 50% in both (ours 53%, theirs 56%). IV, ERC and GMV have lower volatility than EW in 96–100% of
-   experiments in both, and shallower drawdowns in 61–83%. MV and MSR trail on every risk measure. Costs
-   change no ranking. Agreement this close across two independent codebases is strong evidence that the
-   result is not an artefact of either.
+   closely. No strategy beats equal weight on Sharpe in a clear majority of experiments in either (ours at
+   most 46%, theirs at most 56%). IV, ERC and GMV have lower volatility than EW in 98–100% of experiments
+   in both, and shallower drawdowns in 63–80%. MV and MSR trail on every risk measure. Costs change no
+   ranking. Agreement this close across two independent codebases is strong evidence that the result is
+   not an artefact of either.
 2. **The column-wise rankings differ, and the reason is one we already record.** Ranked by *mean* Sharpe,
-   theirs puts 1/N first. Ranked by *median* Sharpe, ours puts EW sixth. Paired head to head, the two agree
-   (point 1). This is definitions §9, "medians across experiments are not head-to-head results", reproduced
+   theirs puts 1/N first. Ranked by *median* Sharpe, ours puts EW third, 0.02 behind the top. Paired head
+   to head, the two agree (point 1). This is definitions §9, "medians across experiments are not head-to-head results", reproduced
    by an outside implementation.
 3. **The design diverges in ways the brief cares about.** Theirs uses **5-year** datasets (the brief says
    three-year), data that **ends 2024-12-31** (the brief says latest available), **futures** for gold and
@@ -74,7 +74,7 @@ departs from something the brief states explicitly.
 | Sector groups | 5 groups of 5; gold, silver, `TLT`, `VNQ`, `XOM` form *Real assets & defensive* | 7 groups: *Commodities and Bonds* (3), *Real Estate* (1), *Energy* (1) | Diverge | Matters only because ours stratifies the draw by group (§4). Theirs uses the groups for chart colours only |
 | Source and price | Yahoo, `auto_adjust=True` | Yahoo, `auto_adjust=False`, then `Adj Close` | Converge | Both are split- and dividend-adjusted |
 | Panel | 2010-01-04 to 2026-09-30 | 2010-01-04 to 2024-12-31 | Converge on start · Diverge on end · **Brief** | Theirs misses the latest 21 months. The brief asks for the latest available data |
-| Extraction date | Stated (2026-10-07); downloads cut at a fixed `end="2026-10-01"` | Not stated; `end="2025-01-01"` | Diverge · **Brief** | The brief asks for the extraction date to be stated |
+| Extraction date | Stated (2026-10-19); downloads cut at a fixed `end="2026-10-01"` | Not stated; `end="2025-01-01"` | Diverge · **Brief** | The brief asks for the extraction date to be stated |
 | Calendar | NYSE sessions from `SPY`; off-calendar prints dropped and counted (none) | Union of all tickers' dates | Diverge | With futures in the panel, CME sessions on NYSE holidays become rows where every stock is forward-filled and returns zero. This needs checking on their panel (not verifiable from the saved output) |
 | Gaps | Forward-fill up to 3 sessions; longer gaps reported (none) | Forward-fill up to 2; reports 0 missing | Converge | — |
 | Risk-free | `^IRX`, daily | 0 | Diverge | Raises every Sharpe and Sortino by roughly the T-bill yield over volatility. Matters most after 2022, when bills paid about 5%. Also changes MSR (§5) |
@@ -96,7 +96,7 @@ departs from something the brief states explicitly.
 | Execution lag | Formed at close *t*, traded at close *t*+1 | Estimated on prices up to *t*−1, earns from the close of *t* | Converge | Both use one session of lag, though only ours asserts it (§5) |
 | Subset | 10 of 25, **2 per sector** | 10 of 25, **uniform** | Diverge | A uniform draw lets the sector mix vary, so some runs have no defensive asset and others hold three banks. This confounds strategy differences with composition (definitions §9, workstream C) |
 | Same windows and subsets for all strategies | Yes | Yes | Converge | — |
-| Evaluation years covered | 2013-10 to 2026-09 | Starts 2012–2021, ends by 2024-12 | Diverge | Theirs has no 2025–26 evaluation; ours has none in 2012 |
+| Evaluation years covered | 2012-01 to 2026-09 | Starts 2012–2021, ends by 2024-12 | Diverge | Theirs has no 2025–26 evaluation |
 
 ---
 
@@ -136,7 +136,7 @@ departs from something the brief states explicitly.
 
 **MV.** Their λ = 1 is a third of ours, so their MV leans further toward the highest-mean asset. Their MV has
 the highest volatility of any strategy (26%) and the highest turnover (237%/yr). Ours documents how often MV
-lands on a single asset (31.5% of days, Table 5.3) and on MSR (7 of 400 windows). Theirs does not check
+lands on a single asset (32.3% of days, Table 5.3) and on MSR (13 of 400 windows). Theirs does not check
 either.
 
 **MSR.** With r_f = 0, theirs maximises return over volatility rather than excess return over volatility.
@@ -194,45 +194,46 @@ volatilities are not comparable in level (3-year vs 1-year windows, arithmetic v
 
 | Strategy | Sharpe — ours | Sharpe — theirs | Lower vol — ours | Lower vol — theirs | Shallower max DD — ours | Shallower max DD — theirs |
 | --- | --- | --- | --- | --- | --- | --- |
-| GMV | 36% | 35% | 96% | 100% | 61% | 67% |
-| MV | 32% | 33% | 0% | 0% | 7% | 9% |
-| MSR | 35% | 17% | 18% | 34% | 33% | 40% |
-| IV | 45% | 47% | 100% | 100% | 83% | 80% |
-| ERC | 41% | 48% | 98% | 100% | 79% | 74% |
-| MDP | 38% | 52% | 90% | 88% | 68% | 67% |
-| MDC | **53%** | **56%** | 72% | 76% | 66% | 66% |
+| GMV | 42% | 35% | 98% | 100% | 63% | 67% |
+| MV | 30% | 33% | 1% | 0% | 8% | 9% |
+| MSR | 30% | 17% | 15% | 34% | 24% | 40% |
+| IV | 39% | 47% | 100% | 100% | 80% | 80% |
+| ERC | 46% | 48% | 100% | 100% | 78% | 74% |
+| MDP | 45% | 52% | 92% | 88% | 72% | 67% |
+| MDC | 44% | **56%** | 67% | 76% | 56% | 66% |
 
-**Converge.** Fifteen of the 21 cells are within 5 points. The ordering is the same: risk-based strategies
-win on risk and lose on return, and MV/MSR lose on both. The clear gaps have identifiable causes:
+**Converge.** Twelve of the 21 cells are within 5 points, and every risk column is ordered the same way:
+risk-based strategies win on risk and lose on return, and MV/MSR lose on both. The clear gaps:
 
-- **MSR, all three columns (Sharpe 35% vs 17%):** their r_f = 0 and 2-year μ make it a different portfolio.
-- **MDP, Sharpe (38% vs 52%):** their 2-year covariance, which gives MDP steadier weights (turnover 54% vs
-  our 78%).
+- **MSR, all three columns (Sharpe 30% vs 17%):** their r_f = 0 and 2-year μ make it a different portfolio.
+- **MDC (Sharpe 44% vs 56%, drawdown 56% vs 66%) and IV (Sharpe 39% vs 47%):** no single cause identified.
+  Two standard errors on a win rate near 50% over 100 experiments are about ±10 points, before allowing for
+  overlap, so gaps of this size are within what a different draw of windows and subsets can produce.
 
 ### 9.2 Rankings
 
 | | Ours: median net Sharpe | Theirs: mean Sharpe, 15 bp |
 | --- | --- | --- |
-| 1 | MDP 0.94 | 1/N 0.903 |
-| 2 | ERC 0.90 | ERC 0.900 |
-| 3 | MDC 0.86 | IV 0.899 |
-| 4 | IV 0.82 | MDC 0.884 |
-| 5 | GMV 0.82 | MDP 0.875 |
-| 6 | EW 0.81 | GMV 0.765 |
-| 7 | MSR 0.72 | Quintile 0.717 |
+| 1 | MDC 1.02 | 1/N 0.903 |
+| 2 | MDP 1.01 | ERC 0.900 |
+| 3 | EW 1.00 | IV 0.899 |
+| 4 | ERC 0.99 | MDC 0.884 |
+| 5 | IV 0.99 | MDP 0.875 |
+| 6 | GMV 0.93 | GMV 0.765 |
+| 7 | MSR 0.69 | Quintile 0.717 |
 | 8 | MV 0.57 | MV 0.680 |
 | 9 | — | MSR 0.630 |
 
 **Diverge in order, converge in shape.** Both have the same three tiers: EW and the risk-based strategies
 within a few hundredths of each other, then GMV, then MV and MSR well behind. EW's position in the top tier
 depends on the statistic used. Ours reads neighbours within about 0.01 as ties (definitions §9). On that
-reading, their top five are a tie.
+reading, both top fives are a tie (ours span 0.03, theirs 0.03).
 
 ### 9.3 Turnover (annualised two-way, %/yr)
 
 | | EW | IV | ERC | MDP | MDC | GMV | MSR | MV | Quintile |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Ours | 21 | 27 | 32 | 78 | 80 | 89 | 266 | 341 | — |
+| Ours | 20 | 27 | 31 | 78 | 78 | 87 | 265 | 349 | — |
 | Theirs | 25 | 25 | 26 | 54 | 56 | 59 | 193 | 237 | 207 |
 
 **Converge in ranking, diverge in level.** The order is the same. Their optimisers trade about a third less,

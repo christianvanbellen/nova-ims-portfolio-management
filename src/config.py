@@ -133,7 +133,7 @@ PANEL_END = "2026-10-01"
 #: The day the data were retrieved, quoted in captions as the brief asks. It does
 #: not cut the data -- `PANEL_END` does -- but Yahoo revises history, so it is
 #: part of what a re-run reproduces. Set it on the day of the final re-run.
-EXTRACTION_DATE = "2026-10-07"
+EXTRACTION_DATE = "2026-10-19"
 FFILL_LIMIT = 3  # interior gaps longer than this are reported, not patched
 EXTREME_MOVE = 0.15  # |daily log return| screened for missed corporate actions
 MIN_YEARS_REQUIRED = 15  # the brief's minimum history
@@ -146,6 +146,9 @@ _COVID_CRASH = "COVID crash: S&P 500 -12% after the Fed cut to zero; worst day s
 _COVID_REBOUND = "COVID rebound: US national emergency declared, S&P 500 +9%"
 _STIMULUS = "Fed open-ended QE (23 Mar) and the CARES Act deal; S&P 500 +9%"
 EXTREME_MOVE_NOTES: dict[tuple[str, str], str] = {
+    ("2011-08-08", "BAC"): "S&P downgrades US sovereign debt (5 Aug) and AIG sues BofA over mortgage securities; S&P 500 -6.7%",
+    ("2011-08-09", "BAC"): "Fed pledges near-zero rates to mid-2013; S&P 500 +4.7%",
+    ("2011-09-23", "SLV"): "Commodity rout after the Fed's Operation Twist (21 Sep) and a stronger dollar; gold -6% the same day",
     ("2020-03-09", "BAC"): "Oil price war and COVID: S&P 500 -7.6%, first circuit-breaker halt; banks hit by the rate collapse",
     ("2020-03-12", "WFC"): "COVID: US travel ban on Europe, S&P 500 -9.5%, second circuit-breaker halt",
     **{("2020-03-13", t): _COVID_REBOUND for t in ["ORCL", "INTC", "JPM", "BAC", "GS", "AXP"]},
