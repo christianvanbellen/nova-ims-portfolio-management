@@ -111,12 +111,15 @@ def correlation_heatmap(
             text = f"{value:.2f}" if n <= 10 else f"{value:.2f}".replace("0.", ".", 1)
             ax.text(j, i, text, ha="center", va="center", fontsize=fontsize, color=ink)
 
+    # A rule after every block that more rows follow, so anything listed after
+    # the groups (e.g. a benchmark) is set apart too.
     if groups:
         edge = -0.5
-        for block in groups[:-1]:
+        for block in groups:
             edge += sum(t in tickers for t in block)
-            ax.axhline(edge, color=cfg.SURFACE, linewidth=2.5)
-            ax.axvline(edge, color=cfg.SURFACE, linewidth=2.5)
+            if edge < n - 1:
+                ax.axhline(edge, color=cfg.SURFACE, linewidth=2.5)
+                ax.axvline(edge, color=cfg.SURFACE, linewidth=2.5)
 
     bar = ax.figure.colorbar(image, ax=ax, shrink=0.78, ticks=[-1, -0.5, 0, 0.5, 1])
     bar.outline.set_visible(False)
@@ -128,13 +131,15 @@ def correlation_heatmap(
 def correlation_table(corr: pd.DataFrame, groups: list[list[str]] | None = None):
     """The heatmap's matrix as a table: two decimals, the same diverging colours.
 
-    `groups` draws a rule after each block, as in `correlation_heatmap`. Returns
-    a pandas Styler for display; the numbers themselves stay in `corr`.
+    `groups` draws a rule after each block that more rows follow, as in
+    `correlation_heatmap`. Returns a pandas Styler for display; the numbers
+    themselves stay in `corr`.
     """
     norm = TwoSlopeNorm(vmin=-1.0, vcenter=0.0, vmax=1.0)
     ends: list[str] = []
     if groups:
-        ends = [[t for t in block if t in corr.columns][-1] for block in groups[:-1]]
+        ends = [[t for t in block if t in corr.columns][-1] for block in groups]
+        ends = [t for t in ends if t != corr.columns[-1]]
     rule = f"2px solid {cfg.INK_SECONDARY}"
 
     def cell_css(value: float, row: str, column: str) -> str:
