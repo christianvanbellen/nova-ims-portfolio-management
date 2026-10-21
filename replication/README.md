@@ -4,11 +4,15 @@ A group colleague built the portfolio backtest separately from this repository. 
 version of their files exactly as delivered (2026-10-20, replacing the first delivery of 2026-10-16) and our
 write-up comparing the two implementations.
 
+**The group report is built entirely on this code.** Every Part II number in the shared report
+([`docs/report/group/`](../docs/report/group/README.md)) comes from the files in `delivered/`. This
+repository's own pipeline is the independent cross-check (definitions §8, 2026-10-22).
+
 **In short:** the final version uses the same 25 assets and the same 2010–2026 panel as ours, and reports
 medians as well as means. The designs still differ (5-year datasets, zero risk-free rate, uniform subset
 draw, a price-only S&P 500 index as benchmark). The paired results agree with ours more closely than
 before: no strategy beats equal weight on Sharpe in a majority of runs, and the risk-based strategies have
-lower volatility than EW in nearly every run. The report can cite this as an independent robustness check.
+lower volatility than EW in nearly every run. The report can cite this repository as an independent check on it.
 What changed between versions is in [`comparison.md`](comparison.md) §2; the full reasoning in §1 and §12.
 
 ## Contents
@@ -27,7 +31,8 @@ What changed between versions is in [`comparison.md`](comparison.md) §2; the fu
 - **Read-only.** Files in `delivered/` are kept as received (original filenames, saved outputs). Nothing
   was re-run. To change something, ask the colleague for a new version and replace the files; the previous
   version stays in git history.
-- **Not part of the pipeline.** Nothing in `src/` or `notebooks/` reads from this folder. The notebook
+- **Not part of this repo's pipeline.** Nothing in `src/` or `notebooks/` reads from this folder, even
+  though the group report does. The notebook
   also needs packages that are not in `pyproject.toml` (`quantstats`, `riskparityportfolio`, `tqdm`,
   `openpyxl`) and a hard-coded Windows path, so it will not run as-is (inventory §1.4).
 - **Adoptions go through the definitions.** Any idea taken from here (buy-and-hold scenario, wider cost

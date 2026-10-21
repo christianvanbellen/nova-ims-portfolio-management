@@ -10,6 +10,10 @@ A group colleague built the backtest independently. This page sets the two side 
 line. §2 lists what changed in the colleague's final version. §§3–9 compare the design point by point. §10
 compares the results. §11 lists defects in the colleague's notebook. §12 lists what the group needs to decide.
 
+**Status (2026-10-22): the group report is built on the colleague's code.** "Theirs" is therefore the
+implementation behind the submitted numbers, and "ours" is the independent cross-check. Decision 1 in §12
+was not taken; the rest of this page stands.
+
 **Labels.** **Converge** = same choice, or the same in substance. **Diverge** = a different choice that changes
 numbers. **Only ours** / **Only theirs** = done on one side only. **Brief** marks the rows where one side
 departs from something the brief states explicitly.
@@ -317,11 +321,11 @@ changes the convergence in §10.
 
 ## 12. Decisions for the group
 
-1. **Keep this repo as the submission pipeline.** It meets the brief's explicit requirements where theirs
-   still departs from them: three-year datasets, failure logging, a dividend-inclusive investable benchmark,
-   and the index-vs-investable distinction. It also covers the parts theirs does not (data, stylised facts,
-   F5–F6).
-2. **Cite the colleague's work as an independent replication** in report §6. Use §10.1 of this page: two
+1. ~~**Keep this repo as the submission pipeline.**~~ **Not taken (2026-10-22):** the group report is built
+   on the colleague's code. The points where it departs from the brief (five-year datasets, failures not
+   logged, price-only benchmark, no index-vs-investable distinction) should therefore be stated in report
+   §5.2. This repo still covers the parts theirs does not (data, F5–F6) and can be cited for them.
+2. **Cite this repo as an independent replication** in report §5.1. Use §10.1 of this page: two
    implementations on the same data, with different windows, risk-free rate, costs and estimation windows,
    reach the same paired conclusions. That is a robustness result, and it is free.
 3. **Consider adopting from theirs** (each a choice, not a requirement):

@@ -31,7 +31,7 @@ PDF in `classes/`).
 | `classes/` | Lecture material — lab notebooks and scripts (Python and R), reference PDF |
 | `docs/` | [`project-definitions.md`](docs/project-definitions.md) — universe, benchmark and data conventions · [`group-project-plan.md`](docs/group-project-plan.md) — the task-by-task plan · [`group-work-division.md`](docs/group-work-division.md) — the group's draft work split and where it diverges from the plan · report drafts · [`report/group/`](docs/report/group/README.md) — snapshot of the shared group report, with its status and open issues |
 | `src/`, `notebooks/` | The pipeline: shared modules, and one notebook per workstream (A–F) that builds every table and figure |
-| [`replication/`](replication/README.md) | A colleague's independent backtest, kept as delivered, with a [comparison](replication/comparison.md) against this repo. Reference only, not part of the pipeline |
+| [`replication/`](replication/README.md) | A colleague's independent backtest, kept as delivered, with a [comparison](replication/comparison.md) against this repo. **The group report is built on this code**; this repo's pipeline does not read from it and serves as the cross-check |
 | `pyproject.toml` | Project dependencies |
 | `uv.lock` | Exact package versions, so everyone gets an identical environment |
 
