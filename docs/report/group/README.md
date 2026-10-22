@@ -13,6 +13,8 @@ number comes from the backtest in [`replication/delivered/`](../../../replicatio
 | File | What it is |
 | --- | --- |
 | [`group-report.pdf`](group-report.pdf) | The draft as rendered (≈ 30 pages). Use it for layout, tables and figures |
+| [`section-5-plan.md`](section-5-plan.md) | Plan for report §5 (robustness and limitations): planned content from the colleague's outputs, opportunities from this repo, support gaps, possible contradictions |
+| [`section-5-draft.md`](section-5-draft.md) | Paste-ready prose for report §5, written from the plan, with review comments for the group |
 | [`group-report.md`](group-report.md) | The same draft exported to Markdown, so it can be searched and diffed. Two figures are embedded as base64 images (hence 1.3 MB). Some export artefacts: table rows reading `undefined`, run-together headings, missing formulas |
 
 ## Ground rules
