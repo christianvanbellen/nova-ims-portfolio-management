@@ -2,7 +2,7 @@
 
 **Drafted:** 2026-10-22, from [`section-5-plan.md`](section-5-plan.md) · **Numbers:** the colleague's final
 backtest, [`replication/delivered/`](../../../replication/delivered/) (2026-10-20) · Paste-ready for the shared
-document. Table numbers 10–13 are provisional. Review comments for the group are at the end.
+document. Table numbers 10–14 are provisional. Review comments for the group are at the end.
 
 ---
 
@@ -64,9 +64,27 @@ reported at 0 and 15 bps but not at the higher cost levels, and because the lead
 less than 0.03 in median Sharpe at 15 bps, small reorderings among them at higher costs cannot be
 excluded.
 ### **5.1.2 Rebalancing policy**
+*Table 12 – Buy-and-hold vs quarterly rebalancing: median Sharpe ratio and share of windows beating 1/N*
+
+| **Strategy** | **Sharpe, buy-and-hold** | **Sharpe, quarterly 0 bps** | **Sharpe, quarterly 15 bps** | **Beats 1/N on Sharpe: B&H** | **Beats 1/N on Sharpe: Q** | **Lower vol. than 1/N: B&H** | **Lower vol. than 1/N: Q** | **Shallower max DD: B&H** | **Shallower max DD: Q** |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Markowitz | 0.83 | 0.68 | 0.67 | 49% | 29% | 0% | 0% | 14% | 12% |
+| Quintile | 0.83 | 0.73 | 0.72 | 50% | 32% | 2% | 1% | 12% | 18% |
+| 1/N | 0.86 | 0.89 | 0.89 | – | – | – | – | – | – |
+| Inverse Volatility | 0.86 | 0.89 | 0.88 | 50% | 46% | 100% | 100% | 86% | 82% |
+| Max Decorrelation | 0.88 | 0.92 | 0.91 | 56% | 48% | 69% | 71% | 65% | 67% |
+| Risk Parity | 0.93 | 0.92 | 0.91 | 49% | 45% | 100% | 100% | 81% | 78% |
+| Most Diversified | 0.92 | 0.91 | 0.90 | 53% | 45% | 82% | 89% | 71% | 69% |
+| Max Sharpe | 0.83 | 0.68 | 0.65 | 45% | 27% | 39% | 34% | 42% | 43% |
+| GMVP | 0.81 | 0.80 | 0.79 | 40% | 35% | 97% | 100% | 68% | 70% |
+*Note: Sharpe ratios are medians across the 100 windows; differences quoted in the text are computed before
+rounding. Win shares compare each strategy with 1/N under the same policy, in the same window: B&H =
+buy-and-hold (15 bps on the initial purchase only), Q = quarterly rebalancing at 15 bps. Win shares were
+not reported for quarterly rebalancing without costs. Strategies in the same order as Table 11.*
+
 In the buy-and-hold scenario, each strategy's weights are set once at the start of the evaluation window
 from the preceding two years of data, and then drift with prices for the full three years. Compared with
-quarterly rebalancing, this changes the strategies in opposite directions. For the return-driven strategies, buy-and-hold is clearly
+quarterly rebalancing, this changes the strategies in opposite directions (Table 12). For the return-driven strategies, buy-and-hold is clearly
 better: the median Sharpe ratio is 0.83 against 0.67 for Markowitz, 0.83 against 0.65 for Max Sharpe and
 0.83 against 0.72 for Quintile. Buy-and-hold remains better when quarterly rebalancing is run without
 costs (0.68, 0.68 and 0.73), so the difference does not come from fees. These are the strategies that
@@ -80,7 +98,7 @@ The main conclusions do not depend on the rebalancing policy. Under buy-and-hold
 53%). Inverse Volatility and Risk Parity have lower volatility than 1/N in every
 window under both policies, and shallower maximum drawdowns in 86% and 81% of windows under buy-and-hold.
 ### **5.1.3 Sample period**
-*Table 12 – Share of windows in which each strategy beats 1/N on the Sharpe ratio, by out-of-sample start*
+*Table 13 – Share of windows in which each strategy beats 1/N on the Sharpe ratio, by out-of-sample start*
 
 | **OOS start** | **Windows** | **Markowitz** | **GMVP** | **Max Sharpe** | **Inverse Volatility** | **Risk Parity** | **Most Diversified** | **Max Decorrelation** | **Quintile** |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -93,7 +111,7 @@ window under both policies, and shallower maximum drawdowns in 86% and 81% of wi
 15 to 34 windows, so their shares are less precise than those for all 100 windows. Results by single start
 year are reported in Appendix D.*
 
-Whether any strategy beats 1/N depends on the period (Table 12). In the 22 windows whose evaluation starts
+Whether any strategy beats 1/N depends on the period (Table 13). In the 22 windows whose evaluation starts
 in 2017 or 2018, every strategy beats 1/N in a majority of windows, Risk Parity in 91%. This is the only
 group in which that happens. In the other 78 windows, no strategy beats 1/N in a majority of windows,
 except Max Decorrelation at 55% in 2012–2016. The weakest period for the return-driven strategies is the
@@ -105,8 +123,21 @@ Windows are grouped by the year in which their evaluation period starts. Because
 lasts three years, the groups overlap in calendar time: a window starting in late 2019, for example,
 contains both the 2020 crash and the 2022 rise in interest rates. The table therefore
 shows that results depend on the period, but it cannot attribute that dependence to a single market event.
+
+A possible reading of this pattern comes from how the assets themselves behaved, measured on the same
+price data. By construction, Inverse Volatility, Risk Parity and GMVP give less weight to the most
+volatile assets, so they should gain on 1/N when those assets fall hardest and lose when those assets
+lead. Across the 25 assets, the more volatile ones (ranked by their volatility over 2015–2016) fell most
+in the sell-off of late 2018 and in the 2020 crash, but rose most in 2012–2016, in the rebound from March
+2020 and from 2023 onward. The correlation between an asset's volatility and its return is −0.72 and
+−0.33 in the two sell-offs, against +0.68, +0.50 and +0.52 in the three rising phases. Evaluation
+periods starting in 2017–2018 run to 2020–2021, so most of them span both sell-offs, while those of the
+other groups are dominated by the rising phases. After 2022, the defensive assets also lost part of their
+protection. Treasuries fell 31% in 2022, and their daily correlation with the 21 shares in the universe,
+negative in every year from 2012 to 2021, has been positive since 2022. This reading is descriptive: the
+backtest does not record portfolio weights, so it cannot confirm that these episodes drive the results.
 ### **5.1.4 Asset subset**
-*Table 13 – Change in the share of windows beating 1/N on the Sharpe ratio when an asset is held (percentage points)*
+*Table 14 – Change in the share of windows beating 1/N on the Sharpe ratio when an asset is held (percentage points)*
 
 | **Asset** | **Windows holding it** | **GMVP** | **Inverse Volatility** | **Risk Parity** | **Most Diversified** | **Max Decorrelation** |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -121,7 +152,7 @@ shows that results depend on the period, but it cannot attribute that dependence
 are reported in Appendix D.*
 
 Each asset is held in 33 to 49 of the 100 windows, so no asset dominates the experiment. One asset stands
-out (Table 13). When gold is in the subset, all five risk-based strategies beat 1/N noticeably more often:
+out (Table 14). When gold is in the subset, all five risk-based strategies beat 1/N noticeably more often:
 Risk Parity, for example, wins in 62% of windows that hold gold and in 33% of those that do not. Holding
 JPM also helps GMVP, Inverse Volatility and Risk Parity. Treasuries, by contrast, do not help: with TLT in
 the subset, Risk Parity, Most Diversified and Max Decorrelation beat 1/N less often. The pattern for gold,
@@ -134,7 +165,8 @@ all five under both rebalancing policies. The comparison is an association, not 
 asset may simply be held more often in favourable periods. The result for gold is consistent with the
 correlation structure in the appendix, where gold is essentially uncorrelated with the rest of the
 universe. The result for Treasuries is not what that structure suggests. The backtest does not record
-portfolio weights, so it cannot show why; this is left open.
+portfolio weights, so it cannot show why; the change in the behaviour of Treasuries after 2022
+(Section 5.1.3) is one possible reason.
 ### **5.1.5 Reference benchmark**
 The conclusions do not rest on 1/N as the only reference. Against the Quintile portfolio, every risk-based
 strategy wins on the Sharpe ratio in 54% to 66% of windows, and 1/N in 68%. Against the S&P 500, 1/N,
@@ -252,7 +284,7 @@ depends on.
     backtest does not record weights. The appendix wording may need softening.
 11. **Unsourced numbers in the old §5.1 skeleton.** The stock–bond correlation figures ([−0.24] to [+0.30])
     and the "[25] bp" cost level have no source in the code. They were dropped from this draft.
-12. **Table numbering.** The report has two "Table 2"s (§3.1.3 and the §4.3 "Tabelle 2"). §5 uses 10–13
+12. **Table numbering.** The report has two "Table 2"s (§3.1.3 and the §4.3 "Tabelle 2"). §5 uses 10–14
     provisionally. Appendix D will need the full per-year and per-asset tables.
 13. **Cross-references.** §1.2 points to "Section 6" for limitations (they are §5.2), and §6.1 says "eight"
     strategies (nine with Quintile).
@@ -265,3 +297,8 @@ depends on.
 16. **Fee table lacks Sharpe.** Repeats item 8 for the summary: §5.1.6 now claims robustness only "for
     which the results are available", because the win rates exist at 15 bps only.
 
+17. **New figures in §5.1.3's last paragraph come from the colleague's data, not their notebook output.**
+    The volatility-return correlations by episode, the 31% Treasuries loss in 2022 and the Treasuries-shares
+    correlation by year were computed by us from `Data_Utilized.xlsx` (the colleague's price snapshot). The
+    episode dates (19 Feb–23 Mar 2020, end-Sep–24 Dec 2018) are our choice. If the group prefers §5 to quote
+    only notebook outputs, the paragraph can stay without the numbers.
